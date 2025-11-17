@@ -31,7 +31,7 @@ O **Projeto Lar Temporário** é uma aplicação web desenvolvida para ajudar ON
 
 ## 📁 Estrutura do Projeto
 
-\`\`\`
+```
 ├── app/                    # Páginas e rotas (App Router)
 │   ├── cadastro/          # Cadastro de usuários
 │   ├── escalas/           # Gestão de escalas e calendário
@@ -49,7 +49,7 @@ O **Projeto Lar Temporário** é uma aplicação web desenvolvida para ajudar ON
 ├── lib/                   # Utilitários e helpers
 ├── public/               # Arquivos estáticos
 └── README.md
-\`\`\`
+```
 
 ## 🛠️ Como Rodar o Projeto
 
