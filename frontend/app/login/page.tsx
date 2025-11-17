@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Cat, Mail, Lock, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -17,17 +17,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
-  // Verificar se o usuário já está logado
-  useEffect(() => {
-    async function checkAuth() {
-      const isAuth = await authApi.isAuthenticated()
-      if (isAuth) {
-        router.push("/escalas")
-      }
-    }
-    checkAuth()
-  }, [router])
-
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -35,11 +24,10 @@ export default function LoginPage() {
 
     try {
       await authApi.signIn(email, password)
-      router.push("/escalas")
+      window.location.href = "/escalas"
     } catch (err: any) {
       console.error("Erro ao fazer login:", err)
       setError(err.message || "Email ou senha inválidos. Verifique suas credenciais.")
-    } finally {
       setLoading(false)
     }
   }

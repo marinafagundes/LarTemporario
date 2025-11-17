@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-browser'
 import { Database } from '@/lib/supabase'
 
 type Escala = Database['public']['Tables']['escalas']['Row']
@@ -12,6 +12,7 @@ type Medicacao = Database['public']['Tables']['medicacao']['Row']
 export const escalasApi = {
   // Listar todas as escalas do usuário
   async getByUser(userId: string) {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('escalas')
       .select('*')
@@ -24,6 +25,7 @@ export const escalasApi = {
 
   // Buscar escala por ID
   async getById(id: number) {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('escalas')
       .select('*')
@@ -36,6 +38,7 @@ export const escalasApi = {
 
   // Buscar escalas por período
   async getByPeriod(startDate: string, endDate: string) {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('escalas')
       .select('*')
@@ -49,6 +52,7 @@ export const escalasApi = {
 
   // Buscar escalas por tipo
   async getByTipo(tipo: 'Limpeza' | 'Socialização' | 'Medicação' | 'Consulta') {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('escalas')
       .select('*')
@@ -61,6 +65,7 @@ export const escalasApi = {
 
   // Criar nova escala
   async create(escala: EscalaInsert) {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('escalas')
       .insert(escala)
@@ -73,6 +78,7 @@ export const escalasApi = {
 
   // Atualizar escala
   async update(id: number, updates: EscalaUpdate) {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('escalas')
       .update(updates)
@@ -86,6 +92,7 @@ export const escalasApi = {
 
   // Deletar escala
   async delete(id: number) {
+    const supabase = createClient()
     const { error } = await supabase
       .from('escalas')
       .delete()
@@ -98,6 +105,7 @@ export const escalasApi = {
   
   // Criar escala de limpeza
   async createLimpeza(escala: EscalaInsert, tarefasIds?: number[]) {
+    const supabase = createClient()
     const novaEscala = await this.create({ ...escala, tipo: 'Limpeza' })
     
     // Criar registro de limpeza
@@ -128,6 +136,7 @@ export const escalasApi = {
 
   // Buscar tarefas disponíveis
   async getTarefas() {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('tarefas')
       .select('*')
@@ -141,6 +150,7 @@ export const escalasApi = {
   
   // Criar escala de socialização
   async createSocializacao(escala: EscalaInsert, gatoId: number) {
+    const supabase = createClient()
     const novaEscala = await this.create({ ...escala, tipo: 'Socialização' })
     
     const { data, error } = await supabase
@@ -158,6 +168,7 @@ export const escalasApi = {
 
   // Buscar socializações por gato
   async getSocializacoesByGato(gatoId: number) {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('socializacao')
       .select('*, escalas(*)')
@@ -176,6 +187,7 @@ export const escalasApi = {
     dataHora: string,
     veterinario?: string
   ) {
+    const supabase = createClient()
     const novaEscala = await this.create({ ...escala, tipo: 'Consulta' })
     
     const { data, error } = await supabase
@@ -196,6 +208,7 @@ export const escalasApi = {
 
   // Atualizar status da consulta
   async updateConsultaStatus(consultaId: number, status: string) {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('consulta')
       .update({ status })
@@ -209,6 +222,7 @@ export const escalasApi = {
 
   // Buscar consultas por gato
   async getConsultasByGato(gatoId: number) {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('consulta')
       .select('*, escalas(*)')
@@ -229,6 +243,7 @@ export const escalasApi = {
     instrucoes?: string,
     dataHoraPrevista?: string
   ) {
+    const supabase = createClient()
     const novaEscala = await this.create({ ...escala, tipo: 'Medicação' })
     
     const { data, error } = await supabase
@@ -249,6 +264,7 @@ export const escalasApi = {
 
   // Registrar administração de medicação
   async registrarMedicacao(medicacaoId: number, registro: string) {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('medicacao')
       .update({
@@ -265,6 +281,7 @@ export const escalasApi = {
 
   // Buscar medicações por gato
   async getMedicacoesByGato(gatoId: number) {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('medicacao')
       .select('*, escalas(*)')
@@ -277,6 +294,7 @@ export const escalasApi = {
 
   // Buscar medicações pendentes
   async getMedicacoesPendentes() {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('medicacao')
       .select('*, escalas(*), gatos(*)')

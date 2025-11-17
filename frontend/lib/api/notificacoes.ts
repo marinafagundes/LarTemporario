@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-browser'
 import { Database } from '@/lib/supabase'
 
 type Notificacao = Database['public']['Tables']['notificacoes']['Row']
@@ -8,6 +8,7 @@ type NotificacaoUpdate = Database['public']['Tables']['notificacoes']['Update']
 export const notificacoesApi = {
   // Listar todas as notificações do usuário
   async getByUser(userId: string) {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('notificacoes')
       .select('*')
@@ -20,6 +21,7 @@ export const notificacoesApi = {
 
   // Buscar notificações não lidas
   async getUnread(userId: string) {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('notificacoes')
       .select('*')
@@ -33,6 +35,7 @@ export const notificacoesApi = {
 
   // Contar notificações não lidas
   async countUnread(userId: string) {
+    const supabase = createClient()
     const { count, error } = await supabase
       .from('notificacoes')
       .select('*', { count: 'exact', head: true })
@@ -45,6 +48,7 @@ export const notificacoesApi = {
 
   // Criar nova notificação
   async create(notificacao: NotificacaoInsert) {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('notificacoes')
       .insert(notificacao)
@@ -57,6 +61,7 @@ export const notificacoesApi = {
 
   // Marcar notificação como lida
   async markAsRead(id: number) {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('notificacoes')
       .update({ lida: true })
@@ -70,6 +75,7 @@ export const notificacoesApi = {
 
   // Marcar todas as notificações do usuário como lidas
   async markAllAsRead(userId: string) {
+    const supabase = createClient()
     const { error } = await supabase
       .from('notificacoes')
       .update({ lida: true })
@@ -81,6 +87,7 @@ export const notificacoesApi = {
 
   // Deletar notificação
   async delete(id: number) {
+    const supabase = createClient()
     const { error } = await supabase
       .from('notificacoes')
       .delete()
@@ -91,6 +98,7 @@ export const notificacoesApi = {
 
   // Subscrever a mudanças em tempo real
   subscribeToChanges(userId: string, callback: (payload: any) => void) {
+    const supabase = createClient()
     return supabase
       .channel('notificacoes_changes')
       .on(

@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-browser'
 import { Database } from '@/lib/supabase'
 
 type Usuario = Database['public']['Tables']['usuarios']['Row']
@@ -8,6 +8,7 @@ type UsuarioUpdate = Database['public']['Tables']['usuarios']['Update']
 export const usuariosApi = {
   // Buscar usuário atual
   async getCurrent() {
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Usuário não autenticado')
 
@@ -23,6 +24,7 @@ export const usuariosApi = {
 
   // Buscar usuário por ID
   async getById(id: string) {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('usuarios')
       .select('*')
@@ -35,6 +37,7 @@ export const usuariosApi = {
 
   // Listar todos os usuários (apenas para admin/lider)
   async getAll() {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('usuarios')
       .select('*')
@@ -47,6 +50,7 @@ export const usuariosApi = {
 
   // Listar usuários por perfil
   async getByPerfil(perfil: 'Voluntario' | 'Lider') {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('usuarios')
       .select('*')
@@ -60,6 +64,7 @@ export const usuariosApi = {
 
   // Atualizar perfil do usuário
   async update(id: string, updates: UsuarioUpdate) {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('usuarios')
       .update(updates)
@@ -73,21 +78,25 @@ export const usuariosApi = {
 
   // Desativar usuário (soft delete)
   async deactivate(id: string) {
+    const supabase = createClient()
     return this.update(id, { ativo: false })
   },
 
   // Reativar usuário
   async reactivate(id: string) {
+    const supabase = createClient()
     return this.update(id, { ativo: true })
   },
 
   // Promover usuário a líder
   async promoteToLider(id: string) {
+    const supabase = createClient()
     return this.update(id, { perfil: 'Lider' })
   },
 
   // Rebaixar líder a voluntário
   async demoteToVoluntario(id: string) {
+    const supabase = createClient()
     return this.update(id, { perfil: 'Voluntario' })
   }
 }

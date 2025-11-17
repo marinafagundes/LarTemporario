@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-browser'
 import { Database } from '@/lib/supabase'
 
 type Gato = Database['public']['Tables']['gatos']['Row']
@@ -8,6 +8,7 @@ type GatoUpdate = Database['public']['Tables']['gatos']['Update']
 export const gatosApi = {
   // Listar todos os gatos
   async getAll() {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('gatos')
       .select('*')
@@ -19,6 +20,7 @@ export const gatosApi = {
 
   // Buscar gato por ID
   async getById(id: number) {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('gatos')
       .select('*')
@@ -31,6 +33,7 @@ export const gatosApi = {
 
   // Buscar gatos por status
   async getByStatus(status: string) {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('gatos')
       .select('*')
@@ -43,6 +46,7 @@ export const gatosApi = {
 
   // Buscar gatos por sexo
   async getBySexo(sexo: 'M' | 'F') {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('gatos')
       .select('*')
@@ -55,6 +59,7 @@ export const gatosApi = {
 
   // Criar novo gato
   async create(gato: GatoInsert) {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('gatos')
       .insert(gato)
@@ -67,6 +72,7 @@ export const gatosApi = {
 
   // Atualizar gato
   async update(id: number, updates: GatoUpdate) {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('gatos')
       .update(updates)
@@ -80,6 +86,7 @@ export const gatosApi = {
 
   // Deletar gato
   async delete(id: number) {
+    const supabase = createClient()
     const { error } = await supabase
       .from('gatos')
       .delete()
@@ -99,6 +106,7 @@ export const gatosApi = {
 
   // Upload de foto
   async uploadFoto(file: File, gatoId: number) {
+    const supabase = createClient()
     const fileExt = file.name.split('.').pop()
     const fileName = `${gatoId}-${Date.now()}.${fileExt}`
     const filePath = `gatos/${fileName}`

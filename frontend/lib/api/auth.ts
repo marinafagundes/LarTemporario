@@ -1,8 +1,9 @@
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-browser'
 
 export const authApi = {
-  // Fazer login com email e senha
   async signIn(email: string, password: string) {
+    const supabase = createClient()
+    
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
@@ -17,6 +18,7 @@ export const authApi = {
     nome?: string
     telefone?: string
   }) {
+    const supabase = createClient()
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -31,12 +33,14 @@ export const authApi = {
 
   // Fazer logout
   async signOut() {
+    const supabase = createClient()
     const { error } = await supabase.auth.signOut()
     if (error) throw error
   },
 
   // Obter usuário atual
   async getCurrentUser() {
+    const supabase = createClient()
     const { data: { user }, error } = await supabase.auth.getUser()
     if (error) throw error
     return user
@@ -44,6 +48,7 @@ export const authApi = {
 
   // Obter sessão atual
   async getSession() {
+    const supabase = createClient()
     const { data: { session }, error } = await supabase.auth.getSession()
     if (error) throw error
     return session
@@ -51,6 +56,7 @@ export const authApi = {
 
   // Resetar senha
   async resetPassword(email: string) {
+    const supabase = createClient()
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/reset-password`
     })
@@ -60,6 +66,7 @@ export const authApi = {
 
   // Atualizar senha
   async updatePassword(newPassword: string) {
+    const supabase = createClient()
     const { error } = await supabase.auth.updateUser({
       password: newPassword
     })
@@ -69,6 +76,7 @@ export const authApi = {
 
   // Atualizar email
   async updateEmail(newEmail: string) {
+    const supabase = createClient()
     const { error } = await supabase.auth.updateUser({
       email: newEmail
     })
@@ -78,12 +86,14 @@ export const authApi = {
 
   // Verificar se o usuário está autenticado
   async isAuthenticated() {
+    const supabase = createClient()
     const { data: { session } } = await supabase.auth.getSession()
     return !!session
   },
 
   // Subscrever a mudanças de autenticação
   onAuthStateChange(callback: (event: string, session: any) => void) {
+    const supabase = createClient()
     return supabase.auth.onAuthStateChange(callback)
   }
 }

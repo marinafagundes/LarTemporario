@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Cat, Mail, Lock, User, Phone, AlertCircle, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -22,17 +22,6 @@ export default function CadastroPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
-
-  // Verificar se o usuário já está logado
-  useEffect(() => {
-    async function checkAuth() {
-      const isAuth = await authApi.isAuthenticated()
-      if (isAuth) {
-        router.push("/escalas")
-      }
-    }
-    checkAuth()
-  }, [router])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -80,7 +69,7 @@ export default function CadastroPage() {
       
       setSuccess(true)
       setTimeout(() => {
-        router.push("/login")
+        window.location.href = "/login"
       }, 2000)
     } catch (err: any) {
       console.error("Erro ao cadastrar:", err)
