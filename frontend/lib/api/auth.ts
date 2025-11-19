@@ -46,12 +46,26 @@ export const authApi = {
     return user
   },
 
-  // Obter sessão atual
   async getSession() {
     const supabase = createClient()
-    const { data: { session }, error } = await supabase.auth.getSession()
+    // getUser() valida o token no servidor
+    const { data: { user }, error } = await supabase.auth.getUser()
     if (error) throw error
-    return session
+    
+    // Se precisar da sessão completa, busca após validar o usuário
+    if (user) {
+      const { data: { session } } = await supabase.auth.getSession()
+      return session
+    }
+    return null
+  },
+
+  // Obter claims do token JWT
+  async getClaims() {
+    const supabase = createClient()
+    const { data, error } = await supabase.auth.getClaims()
+    if (error) throw error
+    return data
   },
 
   // Resetar senha
@@ -84,11 +98,12 @@ export const authApi = {
     if (error) throw error
   },
 
-  // Verificar se o usuário está autenticado
+  // Verificar se o usuário está autenticado (validado no servidor)
   async isAuthenticated() {
     const supabase = createClient()
-    const { data: { session } } = await supabase.auth.getSession()
-    return !!session
+    // Usa getUser() para validar o token no servidor
+    const { data: { user }, error } = await supabase.auth.getUser()
+    return !!user && !error
   },
 
   // Subscrever a mudanças de autenticação

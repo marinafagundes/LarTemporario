@@ -5,48 +5,69 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Cat, X, Plus, Minus } from "lucide-react"
+import { Cat, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
 import { BottomNav } from "@/components/bottom-nav"
 import { Card, CardContent } from "@/components/ui/card"
+import { gatosApi } from "@/lib/api/gatos"
+import { useToast } from "@/hooks/use-toast"
 
 export default function CadastrarGatoPage() {
   const router = useRouter()
-  const [vacinas, setVacinas] = useState([{ nome: "", data: "" }])
-  const [historicoSaude, setHistoricoSaude] = useState([""])
-  const [observacoes, setObservacoes] = useState([""])
+  const { toast } = useToast()
+  const [loading, setLoading] = useState(false)
+  const [formData, setFormData] = useState({
+    nome: "",
+    data_resgate: "",
+    data_nascimento: "",
+    sexo: "",
+    status: "",
+    foto: "",
+    observacao: ""
+  })
 
-  const adicionarVacina = () => {
-    setVacinas([...vacinas, { nome: "", data: "" }])
-  }
-
-  const removerVacina = (index: number) => {
-    setVacinas(vacinas.filter((_, i) => i !== index))
-  }
-
-  const adicionarHistorico = () => {
-    setHistoricoSaude([...historicoSaude, ""])
-  }
-
-  const removerHistorico = (index: number) => {
-    setHistoricoSaude(historicoSaude.filter((_, i) => i !== index))
-  }
-
-  const adicionarObservacao = () => {
-    setObservacoes([...observacoes, ""])
-  }
-
-  const removerObservacao = (index: number) => {
-    setObservacoes(observacoes.filter((_, i) => i !== index))
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Aqui salvaria no banco de dados
-    router.push("/gatos")
+    
+    try {
+      setLoading(true)
+      await gatosApi.create({
+        nome: formData.nome,
+        data_resgate: formData.data_resgate || null,
+        data_nascimento: formData.data_nascimento || null,
+        sexo: formData.sexo || null,
+        status: formData.status || null,
+        foto: formData.foto || null,
+        observacao: formData.observacao || null
+      })
+      
+      toast({
+        title: "Sucesso!",
+        description: "Gato cadastrado com sucesso.",
+      })
+      
+      router.push("/gatos")
+    } catch (error) {
+      console.error('Erro ao cadastrar gato:', error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível cadastrar o gato. Tente novamente.",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }))
   }
 
   return (
@@ -77,220 +98,102 @@ export default function CadastrarGatoPage() {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   {/* Foto */}
                   <div className="flex flex-col items-center gap-3">
-                    <div className="w-32 h-32 rounded-full bg-primary/20 flex items-center justify-center border-2 border-primary">
-                      <Cat className="w-16 h-16 text-primary" />
+                    <div className="w-32 h-32 rounded-full bg-primary/20 flex items-center justify-center border-2 border-primary overflow-hidden">
+                      {formData.foto ? (
+                        <img src={formData.foto} alt="Preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <Cat className="w-16 h-16 text-primary" />
+                      )}
                     </div>
-                    <Button type="button" className="bg-primary hover:bg-accent text-white rounded-full px-6 text-sm">
-                      Adicionar foto
-                    </Button>
+                    <div className="w-full">
+                      <Label htmlFor="foto">URL da Foto</Label>
+                      <Input
+                        id="foto"
+                        placeholder="Cole a URL da foto"
+                        className="bg-secondary/50 border-border"
+                        value={formData.foto}
+                        onChange={(e) => handleChange('foto', e.target.value)}
+                      />
+                    </div>
                   </div>
 
                   {/* Nome */}
                   <div>
-                    <Label htmlFor="nome">Nome</Label>
+                    <Label htmlFor="nome">Nome *</Label>
                     <Input
                       id="nome"
                       placeholder="Digite o nome do(a) gato(a)"
                       className="bg-secondary/50 border-border"
                       required
+                      value={formData.nome}
+                      onChange={(e) => handleChange('nome', e.target.value)}
                     />
                   </div>
 
-                  {/* Idade */}
+                  {/* Data de Resgate */}
                   <div>
-                    <Label htmlFor="idade">Idade</Label>
+                    <Label htmlFor="data_resgate">Data de Resgate</Label>
                     <Input
-                      id="idade"
-                      placeholder="Digite a idade do(a) gato(a)"
+                      id="data_resgate"
+                      type="date"
                       className="bg-secondary/50 border-border"
-                      required
+                      value={formData.data_resgate}
+                      onChange={(e) => handleChange('data_resgate', e.target.value)}
+                    />
+                  </div>
+
+                  {/* Data de Nascimento */}
+                  <div>
+                    <Label htmlFor="data_nascimento">Data de Nascimento</Label>
+                    <Input
+                      id="data_nascimento"
+                      type="date"
+                      className="bg-secondary/50 border-border"
+                      value={formData.data_nascimento}
+                      onChange={(e) => handleChange('data_nascimento', e.target.value)}
                     />
                   </div>
 
                   {/* Sexo */}
                   <div>
                     <Label htmlFor="sexo">Sexo</Label>
-                    <Select required>
+                    <Select value={formData.sexo} onValueChange={(value) => handleChange('sexo', value)}>
                       <SelectTrigger className="bg-secondary/50 border-border">
-                        <SelectValue placeholder="Selecione o sexo do(a) gato(a)" />
+                        <SelectValue placeholder="Selecione o sexo" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="macho">Macho</SelectItem>
-                        <SelectItem value="femea">Fêmea</SelectItem>
+                        <SelectItem value="M">Macho</SelectItem>
+                        <SelectItem value="F">Fêmea</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
-                  {/* Raça */}
+                  {/* Status */}
                   <div>
-                    <Label htmlFor="raca">Raça</Label>
-                    <Input
-                      id="raca"
-                      placeholder="Digite a cor do(a) gato(a)"
-                      className="bg-secondary/50 border-border"
-                      required
-                    />
-                  </div>
-
-                  {/* Temperamento */}
-                  <div>
-                    <Label htmlFor="temperamento">Temperamento</Label>
-                    <Select required>
+                    <Label htmlFor="status">Status</Label>
+                    <Select value={formData.status} onValueChange={(value) => handleChange('status', value)}>
                       <SelectTrigger className="bg-secondary/50 border-border">
-                        <SelectValue placeholder="Selecione o temperamento do(a) gato(a)" />
+                        <SelectValue placeholder="Selecione o status" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="docil">Dócil</SelectItem>
-                        <SelectItem value="nao-docil">Não dócil</SelectItem>
+                        <SelectItem value="Disponível">Disponível</SelectItem>
+                        <SelectItem value="Adotado">Adotado</SelectItem>
+                        <SelectItem value="Em tratamento">Em tratamento</SelectItem>
+                        <SelectItem value="Não dócil">Não dócil</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
-
-                  {/* Castrado */}
-                  <div>
-                    <Label htmlFor="castrado">Castrado</Label>
-                    <Select required>
-                      <SelectTrigger className="bg-secondary/50 border-border">
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="sim">Sim</SelectItem>
-                        <SelectItem value="nao">Não</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Vacinas */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <Label>Vacinas</Label>
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={adicionarVacina}
-                        className="bg-transparent hover:bg-muted text-primary p-2 h-auto"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </Button>
-                    </div>
-                    {vacinas.map((vacina, index) => (
-                      <div key={index} className="flex gap-2 mb-2 items-start">
-                        <div className="flex-1 space-y-2">
-                          <Input
-                            placeholder="Ex.: V4 - 15/03/2024"
-                            className="bg-secondary/50 border-border text-sm"
-                            value={vacina.nome}
-                            onChange={(e) => {
-                              const novasVacinas = [...vacinas]
-                              novasVacinas[index].nome = e.target.value
-                              setVacinas(novasVacinas)
-                            }}
-                          />
-                        </div>
-                        {vacinas.length > 1 && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => removerVacina(index)}
-                            className="bg-transparent hover:bg-muted text-primary p-2 h-auto"
-                          >
-                            <Minus className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Histórico de saúde */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <Label>Histórico de saúde</Label>
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={adicionarHistorico}
-                        className="bg-transparent hover:bg-muted text-primary p-2 h-auto"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </Button>
-                    </div>
-                    {historicoSaude.map((item, index) => (
-                      <div key={index} className="flex gap-2 mb-2">
-                        <Input
-                          placeholder="Digite aqui"
-                          className="bg-secondary/50 border-border text-sm"
-                          value={item}
-                          onChange={(e) => {
-                            const novoHistorico = [...historicoSaude]
-                            novoHistorico[index] = e.target.value
-                            setHistoricoSaude(novoHistorico)
-                          }}
-                        />
-                        {historicoSaude.length > 1 && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => removerHistorico(index)}
-                            className="bg-transparent hover:bg-muted text-primary p-2 h-auto"
-                          >
-                            <Minus className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
                   </div>
 
                   {/* Observações */}
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <Label>Observações</Label>
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={adicionarObservacao}
-                        className="bg-transparent hover:bg-muted text-primary p-2 h-auto"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </Button>
-                    </div>
-                    {observacoes.map((obs, index) => (
-                      <div key={index} className="flex gap-2 mb-2">
-                        <Input
-                          placeholder="Digite aqui"
-                          className="bg-secondary/50 border-border text-sm"
-                          value={obs}
-                          onChange={(e) => {
-                            const novasObs = [...observacoes]
-                            novasObs[index] = e.target.value
-                            setObservacoes(novasObs)
-                          }}
-                        />
-                        {observacoes.length > 1 && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => removerObservacao(index)}
-                            className="bg-transparent hover:bg-muted text-primary p-2 h-auto"
-                          >
-                            <Minus className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Adotado */}
-                  <div>
-                    <Label htmlFor="adotado">Adotado</Label>
-                    <Select defaultValue="nao">
-                      <SelectTrigger className="bg-secondary/50 border-border">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="sim">Sim</SelectItem>
-                        <SelectItem value="nao">Não</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="observacao">Observações</Label>
+                    <Textarea
+                      id="observacao"
+                      placeholder="Digite observações sobre o gato (temperamento, saúde, vacinas, etc.)"
+                      className="bg-secondary/50 border-border min-h-[120px]"
+                      value={formData.observacao}
+                      onChange={(e) => handleChange('observacao', e.target.value)}
+                    />
                   </div>
 
                   {/* Botões */}
@@ -300,11 +203,16 @@ export default function CadastrarGatoPage() {
                       variant="outline"
                       className="flex-1 border-border bg-transparent rounded-full"
                       onClick={() => router.push("/gatos")}
+                      disabled={loading}
                     >
                       Cancelar
                     </Button>
-                    <Button type="submit" className="flex-1 bg-primary hover:bg-accent text-white rounded-full">
-                      Cadastrar gato
+                    <Button 
+                      type="submit" 
+                      className="flex-1 bg-primary hover:bg-accent text-white rounded-full"
+                      disabled={loading}
+                    >
+                      {loading ? "Cadastrando..." : "Cadastrar gato"}
                     </Button>
                   </div>
                 </form>
