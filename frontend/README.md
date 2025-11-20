@@ -1,6 +1,6 @@
 # 🐱 Sistema de Gestão de Gatil
 
-Sistema web completo para gerenciamento de gatil, desenvolvido para facilitar o cuidado e organização de gatos resgatados. O sistema permite o controle de alimentação, limpeza, socialização, medicação, consultas veterinárias e gestão de voluntários.
+Sistema web completo para gerenciamento de gatil, desenvolvido para facilitar o cuidado e organização de gatos resgatados. O sistema permite o controle de limpeza, socialização, medicação, consultas veterinárias e gestão de voluntários.
 
 ## 📋 Índice
 
@@ -31,10 +31,6 @@ Sistema web completo para gerenciamento de gatil, desenvolvido para facilitar o 
 - Visualização detalhada de cada gato
 
 ### 📅 Escalas e Turnos
-- **Alimentação**: 2 turnos diários (Manhã e Tarde)
-  - Atribuição de voluntários por turno
-  - Sistema de check para marcar conclusão
-  - Histórico de alimentação
 - **Limpeza**: 2 turnos diários (Manhã e Tarde)
   - Atribuição de voluntários por turno
   - Sistema de check para marcar conclusão
@@ -47,11 +43,13 @@ Sistema web completo para gerenciamento de gatil, desenvolvido para facilitar o 
   - Cadastro de medicação por gato
   - Seleção de veterinário responsável
   - Controle de conclusão
+  - Apenas líder pode deletar
 - **Consultas Veterinárias**: Agendamento e controle
   - Data, hora e local da consulta
   - Seleção de veterinário
   - Atribuição de acompanhante
   - Controle de conclusão
+  - Apenas líder pode deletar
 
 ### 🔔 Notificações
 - Sistema de notificações em tempo real
@@ -151,16 +149,18 @@ Possui permissões completas no sistema:
 - ✅ Cadastrar, editar e remover gatos
 - ✅ Cadastrar e gerenciar veterinários
 - ✅ Criar, editar e **deletar** eventos (medicação/consulta)
-- ✅ Atribuir turnos para si mesma
+- ✅ Selecionar turnos/eventos para si mesma
+- ✅ Marcar tarefas como concluídas
 - ✅ Visualizar todas as escalas
 - ✅ Gerenciar voluntários
 
 ### 👤 Voluntária
 Possui permissões limitadas:
 - ✅ Visualizar gatos cadastrados
-- ✅ Atribuir turnos de alimentação para si mesma
+- ✅ Selecionar turnos/eventos para si mesma (limpeza, socialização, medicação, consulta)
 - ✅ Marcar tarefas como concluídas
 - ✅ Visualizar escalas e eventos
+- ✅ Visualizar notificações
 - ❌ **NÃO pode** cadastrar/editar gatos
 - ❌ **NÃO pode** deletar eventos
 - ❌ **NÃO pode** gerenciar veterinários
@@ -203,7 +203,7 @@ interface Cat {
 Gerenciamento de limpeza, socialização, medicação e consultas veterinárias.
 
 **Arquivos principais:**
-- `app/escalas/page.tsx`: Interface principal de escalas com abas
+- `app/escalas/page.tsx`: Interface principal de escalas com 4 abas
 
 **Abas Disponíveis:**
 - 🧹 **Limpeza**: Turnos de limpeza do gatil
@@ -246,14 +246,17 @@ interface SocializationShift {
 \`\`\`
 
 #### 💊 Medicação
-- Cadastro livre de medicamentos
+- Cadastro livre de eventos de medicação
+- Criado manualmente pela líder através do dialog "Criar Evento"
 - Campos: gato, data, hora, medicamento, veterinário
-- Apenas líder pode deletar
+- Voluntárias podem se atribuir ao evento
+- Apenas líder pode deletar (ícone de lixeira)
 
 \`\`\`typescript
 interface Medication {
   id: string
   gatoId: string
+  gatoNome: string
   data: string
   hora: string
   medicamento: string
@@ -264,33 +267,47 @@ interface Medication {
 \`\`\`
 
 #### 🏥 Consulta Veterinária
-- Agendamento de consultas
+- Agendamento de consultas veterinárias
+- Criado manualmente pela líder através do dialog "Criar Evento"
 - Campos: gato, data, hora, veterinário, local
-- Atribuição de acompanhante
-- Apenas líder pode deletar
+- Atribuição de acompanhante voluntário
+- Apenas líder pode deletar (ícone de lixeira vermelho)
 
 \`\`\`typescript
 interface Consultation {
   id: string
   gatoId: string
+  gatoNome: string
   data: string
   hora: string
   veterinarioId: string
+  veterinarioNome: string
   local: string
   voluntario?: string // Quem vai acompanhar
   concluido: boolean
 }
 \`\`\`
 
-**Fluxo de Seleção:**
-1. Usuário clica em "Selecionar" → atribui turno para si mesma
-2. Checkbox fica habilitado
-3. Usuário marca checkbox → conclui tarefa
-4. Desmarcar checkbox → remove conclusão E seleção
+**Fluxo de Seleção de Turnos/Eventos:**
+1. Usuário (líder ou voluntária) clica em "Selecionar" → sistema atribui para o usuário logado
+2. Checkbox fica habilitado após seleção
+3. Usuário marca checkbox → tarefa marcada como concluída
+4. Desmarcar checkbox → remove conclusão E remove seleção automaticamente
 
-**Diferenças entre tipos de turno:**
-- **Automáticos** (Limpeza/Socialização): Gerados pelo sistema, não podem ser deletados
-- **Manuais** (Medicação/Consultas): Criados por líder, podem ser deletados apenas pela líder
+**Diferenças entre tipos de evento:**
+- **Automáticos** (Limpeza/Socialização): 
+  - Gerados automaticamente pelo sistema todos os dias
+  - Não podem ser deletados
+  - Apenas turnos Manhã e Tarde
+- **Manuais** (Medicação/Consultas): 
+  - Criados manualmente pela líder através do dialog "Criar Evento"
+  - Podem ser deletados apenas pela líder (ícone de lixeira vermelho)
+  - Horários e datas personalizados
+
+**Veterinários no Sistema:**
+- Lista de veterinários vem do cadastro no perfil da líder
+- Ao criar eventos de medicação/consulta, líder seleciona veterinário da lista cadastrada
+- Apenas líder pode adicionar/remover veterinários
 
 ### 4. Perfil (`/perfil`)
 Visualização e edição de informações do usuário.
@@ -433,15 +450,17 @@ Sistema identifica tipo (lider/voluntaria)
     ↓
 Renderiza interface com permissões apropriadas
     ↓
-Usuario interage com escalas
+Usuario acessa escalas (limpeza/socialização/medicação/consulta)
     ↓
-Clica em "Selecionar" → atribui para si mesma
+Visualiza turnos/eventos disponíveis
+    ↓
+Clica em "Selecionar" → sistema atribui para usuário logado
     ↓
 Checkbox habilitado
     ↓
 Marca checkbox → tarefa concluída
     ↓
-Desmarca checkbox → remove conclusão E seleção
+Desmarca checkbox → remove conclusão E seleção automaticamente
 \`\`\`
 
 ## 🐛 Debug
@@ -474,5 +493,3 @@ Projeto desenvolvido como trabalho acadêmico para a disciplina SSC0536 - Projet
 - Ano: 2025
 
 ---
-
-Desenvolvido com ❤️ para ajudar gatinhos resgatados 🐱
