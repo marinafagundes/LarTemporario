@@ -1,5 +1,25 @@
 "use client"
 
+/**
+ * Componente de Navegação Inferior (Bottom Navigation)
+ *
+ * Barra de navegação fixa na parte inferior da tela para dispositivos móveis.
+ * Sempre visível em todas as páginas principais do aplicativo.
+ *
+ * Links disponíveis:
+ * - Escalas: Gerenciamento de turnos e eventos
+ * - Gatos: Listagem e cadastro de gatos
+ * - Notificações: Alertas e lembretes
+ * - Perfil: Informações e configurações do usuário
+ *
+ * Design features:
+ * - Ícones destacados quando a rota está ativa
+ * - Fundo laranja (#CC5804) para alta visibilidade
+ * - Suporte a safe area para dispositivos com notch
+ *
+ * @component
+ */
+
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Cat, Calendar, Bell, User } from "lucide-react"
@@ -16,7 +36,7 @@ export function BottomNav() {
   ]
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-[#D4825A] z-50 safe-area-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 bg-[#CC5804] z-50 safe-area-bottom">
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-around h-16 px-2">
           {links.map((link) => {

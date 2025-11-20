@@ -1,9 +1,10 @@
 "use client"
 
 import Link from "next/link"
-import { Cat, ArrowLeft, Pencil } from "lucide-react"
+import { ArrowLeft, Pencil } from "lucide-react"
 import { BottomNav } from "@/components/bottom-nav"
 import { Card, CardContent } from "@/components/ui/card"
+import { PageHeader } from "@/components/page-header"
 
 const gatosData = {
   "1": {
@@ -24,7 +25,7 @@ const gatosData = {
   },
   "2": {
     nome: "Molta",
-    imagem: "/black-white-cat.jpg",
+    imagem: "/black-and-white-cat.png",
     idade: "2 anos",
     sexo: "Fêmea",
     raca: "Frajola",
@@ -96,24 +97,18 @@ export default function GatoPerfilPage({ params }: { params: { id: string } }) {
   return (
     <>
       <div className="min-h-screen pb-20 bg-background">
-        <div className="max-w-md mx-auto">
-          {/* Header */}
-          <header className="bg-card px-4 py-4 flex items-center justify-between border-b border-border">
+        <PageHeader
+          title="GATOS"
+          leftButton={
             <Link href="/gatos">
               <button className="w-10 h-10 bg-transparent hover:bg-muted rounded-full flex items-center justify-center transition-colors">
                 <ArrowLeft className="w-5 h-5" />
               </button>
             </Link>
+          }
+        />
 
-            <h1 className="text-xl font-bold">GATOS</h1>
-
-            <Link href="/escalas">
-              <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center cursor-pointer hover:bg-accent transition-colors">
-                <Cat className="w-6 h-6 text-white" />
-              </div>
-            </Link>
-          </header>
-
+        <div className="max-w-md mx-auto">
           {/* Perfil do gato */}
           <div className="px-4 py-6">
             <Card className="border-border bg-card">

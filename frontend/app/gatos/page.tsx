@@ -29,7 +29,7 @@ const gatos = [
     temperamento: "Dócil",
     castrado: true,
     adotado: false,
-    imagem: "/black-white-cat.jpg",
+    imagem: "/black-and-white-cat.png",
   },
   {
     id: 3,
@@ -84,9 +84,9 @@ export default function GatosPage() {
   return (
     <>
       <div className="min-h-screen pb-20 bg-background">
-        <div className="max-w-5xl mx-auto">
-          <PageHeader title="GATOS" />
+        <PageHeader title="GATOS" />
 
+        <div className="max-w-5xl mx-auto">
           {/* Tabs */}
           <div className="flex gap-2 px-4 py-4 overflow-x-auto">
             <button
@@ -118,7 +118,7 @@ export default function GatosPage() {
           </div>
 
           {/* Grid de gatos */}
-          <div className="grid grid-cols-2 gap-4 px-4 pb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 px-4 pb-8">
             {filteredGatos.map((gato) => (
               <Link key={gato.id} href={`/gatos/${gato.id}`}>
                 <div className="bg-card rounded-3xl p-4 flex flex-col items-center gap-3 hover:shadow-md transition-shadow border border-border">

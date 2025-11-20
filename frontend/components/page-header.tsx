@@ -10,8 +10,8 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, leftButton, showLogo = true }: PageHeaderProps) {
   return (
-    <header className="bg-card border-b border-border">
-      <div className="max-w-5xl mx-auto px-4 py-4 sm:px-6">
+    <header className="bg-card border-b border-border w-full">
+      <div className="px-4 py-4 sm:px-6">
         <div className="flex items-center justify-between">
           {leftButton || <div className="w-10" />}
 

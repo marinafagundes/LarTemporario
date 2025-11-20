@@ -4,25 +4,28 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #f5ebe0;
-  --foreground: #2c2416;
-  --card: #e5d4c1;
-  --card-foreground: #2c2416;
-  --popover: #e5d4c1;
-  --popover-foreground: #2c2416;
-  --primary: #d4825a;
-  --primary-foreground: #ffffff;
-  --secondary: #c4b5a3;
-  --secondary-foreground: #2c2416;
-  --muted: #d4c5b3;
-  --muted-foreground: #6b5f4e;
-  --accent: #a86d4a;
-  --accent-foreground: #ffffff;
+  /* Base colors - background is #CDC5A5, primary is #CC5804 */
+  --background: #cdc5a5;
+  --foreground: #000000;
+
+  /* Cards and elements use #CC5804 with opacity variations */
+  --card: rgba(204, 88, 4, 0.2);
+  --card-foreground: #000000;
+  --popover: rgba(204, 88, 4, 0.3);
+  --popover-foreground: #000000;
+  --primary: #cc5804;
+  --primary-foreground: #000000;
+  --secondary: rgba(204, 88, 4, 0.5);
+  --secondary-foreground: #000000;
+  --muted: rgba(204, 88, 4, 0.2);
+  --muted-foreground: #3d3d3d;
+  --accent: rgba(204, 88, 4, 0.6);
+  --accent-foreground: #000000;
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.577 0.245 27.325);
-  --border: #c4b5a3;
-  --input: #c4b5a3;
-  --ring: #d4825a;
+  --border: rgba(204, 88, 4, 0.3);
+  --input: rgba(204, 88, 4, 0.3);
+  --ring: #cc5804;
   --radius: 1rem;
 }
 
@@ -64,16 +67,16 @@
 @theme inline {
   --font-sans: "Inter", system-ui, sans-serif;
 
-  /* Color tokens baseados no design */
-  --color-primary: #d4825a;
-  --color-primary-hover: #c07048;
-  --color-background: #f5ebe0;
-  --color-surface: #e5d4c1;
-  --color-surface-dark: #d4c5b3;
-  --color-text: #2c2416;
-  --color-text-muted: #6b5f4e;
-  --color-border: #c4b5a3;
-  --color-accent: #a86d4a;
+  /* Custom colors using #CC5804 with opacity for variations */
+  --color-primary: #cc5804;
+  --color-primary-hover: #b34f03;
+  --color-background: #cdc5a5;
+  --color-surface: rgba(204, 88, 4, 0.2);
+  --color-surface-dark: rgba(204, 88, 4, 0.5);
+  --color-text: #000000;
+  --color-text-muted: #3d3d3d;
+  --color-border: rgba(204, 88, 4, 0.3);
+  --color-accent: #cc5804;
 
   /* optional: --font-sans, --font-serif, --font-mono if they are applied in the layout.tsx */
   --color-background: var(--background);

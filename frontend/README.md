@@ -1,123 +1,478 @@
-# Projeto Lar Temporário 🐱
+# 🐱 Sistema de Gestão de Gatil
 
-Sistema de gerenciamento para lares temporários de gatos, facilitando o cuidado, organização de escalas e acompanhamento da saúde dos animais resgatados.
+Sistema web completo para gerenciamento de gatil, desenvolvido para facilitar o cuidado e organização de gatos resgatados. O sistema permite o controle de alimentação, limpeza, socialização, medicação, consultas veterinárias e gestão de voluntários.
 
-## 📋 Sobre o Projeto
+## 📋 Índice
 
-O **Projeto Lar Temporário** é uma aplicação web desenvolvida para ajudar ONGs e voluntários que cuidam de gatos em lares temporários. O sistema permite gerenciar informações dos gatos, organizar escalas de cuidados (limpeza, socialização, medicação, consultas), acompanhar notificações e gerenciar perfis de líderes e voluntários.
+- [Funcionalidades](#funcionalidades)
+- [Estrutura do Projeto](#estrutura-do-projeto)
+- [Tecnologias Utilizadas](#tecnologias-utilizadas)
+- [Como Executar](#como-executar)
+- [Papéis de Usuário](#papéis-de-usuário)
+- [Módulos do Sistema](#módulos-do-sistema)
+- [Paleta de Cores](#paleta-de-cores)
 
-### Principais Funcionalidades
+## ✨ Funcionalidades
 
-- **Gestão de Gatos**: Cadastro completo com foto, dados médicos, temperamento e histórico
-- **Escalas de Cuidados**: Calendário interativo para organizar:
-  - Limpeza
-  - Socialização
-  - Medicação
-  - Consultas veterinárias
-- **Notificações**: Sistema de lembretes para tarefas e eventos importantes
-- **Perfis**: Gerenciamento de líderes e voluntários com suas responsabilidades
-- **Autenticação**: Login seguro com Google OAuth
+### 🔐 Autenticação e Perfis
+- Sistema de login com dois tipos de usuário: **Líder** e **Voluntária**
+- Perfis personalizáveis com foto, nome, e-mail e telefone
+- Gerenciamento de veterinários cadastrados (apenas líder)
 
-## 🚀 Tecnologias Utilizadas
+### 🐈 Gestão de Gatos
+- Cadastro completo de gatos com:
+  - Nome, idade, sexo, raça
+  - Temperamento (Dócil ou Não dócil)
+  - Status de castração
+  - Condições especiais
+  - Foto do gato
+- Listagem e busca de gatos
+- Edição de informações dos gatos
+- Visualização detalhada de cada gato
 
-- **Framework**: [Next.js 16](https://nextjs.org/) (App Router)
-- **Linguagem**: TypeScript
-- **Estilização**: Tailwind CSS v4
-- **UI Components**: shadcn/ui + Radix UI
-- **Ícones**: Lucide React
-- **Formulários**: React Hook Form + Zod
-- **Gerenciamento de Estado**: React 19.2
-- **Calendário**: date-fns + react-day-picker
+### 📅 Escalas e Turnos
+- **Alimentação**: 2 turnos diários (Manhã e Tarde)
+  - Atribuição de voluntários por turno
+  - Sistema de check para marcar conclusão
+  - Histórico de alimentação
+- **Limpeza**: 2 turnos diários (Manhã e Tarde)
+  - Atribuição de voluntários por turno
+  - Sistema de check para marcar conclusão
+  - Turnos gerados automaticamente
+- **Socialização**: 2 turnos diários (Manhã e Tarde)
+  - Atribuição de voluntários por turno
+  - Sistema de check para marcar conclusão
+  - Turnos gerados automaticamente
+- **Medicação**: Registro de medicamentos com data e hora
+  - Cadastro de medicação por gato
+  - Seleção de veterinário responsável
+  - Controle de conclusão
+- **Consultas Veterinárias**: Agendamento e controle
+  - Data, hora e local da consulta
+  - Seleção de veterinário
+  - Atribuição de acompanhante
+  - Controle de conclusão
+
+### 🔔 Notificações
+- Sistema de notificações em tempo real
+- Alertas de tarefas pendentes
+- Lembretes de medicação e consultas
+
+### 👥 Gestão de Voluntários
+- Cadastro de voluntários
+- Atribuição automática de turnos
+- Controle de tarefas por voluntário
 
 ## 📁 Estrutura do Projeto
 
 \`\`\`
-├── app/                    # Páginas e rotas (App Router)
-│   ├── cadastro/          # Cadastro de usuários
-│   ├── escalas/           # Gestão de escalas e calendário
-│   ├── gatos/             # Listagem e gestão de gatos
-│   │   ├── [id]/         # Detalhes e edição de gato
-│   │   └── novo/         # Cadastro de novo gato
-│   ├── login/            # Autenticação
-│   ├── notificacoes/     # Central de notificações
-│   ├── perfil/           # Perfil do usuário
-│   │   └── editar/       # Edição de perfil
-│   └── layout.tsx        # Layout global
-├── components/            # Componentes reutilizáveis
-│   ├── ui/               # Componentes base (shadcn/ui)
-│   └── page-header.tsx   # Header padronizado
-├── lib/                   # Utilitários e helpers
-├── public/               # Arquivos estáticos
-└── README.md
+/
+├── app/                          # Páginas Next.js (App Router)
+│   ├── cadastro/                 # Página de cadastro de voluntários
+│   ├── escalas/                  # Gestão de escalas e turnos
+│   ├── gatos/                    # Gestão de gatos
+│   │   ├── [id]/                 # Visualização e edição de gato específico
+│   │   ├── novo/                 # Cadastro de novo gato
+│   │   └── page.tsx              # Listagem de gatos
+│   ├── home/                     # Página inicial pós-login
+│   ├── login/                    # Autenticação
+│   ├── notificacoes/             # Notificações do usuário
+│   ├── perfil/                   # Visualização e edição de perfil
+│   │   └── editar/               # Edição de perfil do usuário
+│   ├── layout.tsx                # Layout raiz da aplicação
+│   └── page.tsx                  # Landing page
+│
+├── components/                   # Componentes React reutilizáveis
+│   ├── ui/                       # Componentes shadcn/ui
+│   │   ├── button.tsx
+│   │   ├── card.tsx
+│   │   ├── dialog.tsx
+│   │   ├── dropdown-menu.tsx
+│   │   ├── input.tsx
+│   │   ├── select.tsx
+│   │   └── ...                   # Outros componentes UI
+│   ├── bottom-nav.tsx            # Navegação inferior mobile
+│   ├── cat-card.tsx              # Card de exibição de gato
+│   ├── footer-credits.tsx        # Rodapé com créditos do projeto
+│   └── page-header.tsx           # Cabeçalho de páginas
+│
+├── hooks/                        # React Hooks customizados
+│   ├── use-mobile.ts             # Detecta dispositivos móveis
+│   └── use-toast.ts              # Sistema de notificações toast
+│
+├── lib/                          # Utilitários
+│   └── utils.ts                  # Funções auxiliares (cn, etc)
+│
+├── public/                       # Arquivos estáticos
+│   ├── placeholder-logo.png
+│   ├── placeholder-user.jpg
+│   └── ...                       # Imagens de gatos
+│
+└── styles/                       # Estilos globais
+    └── globals.css               # CSS global com tokens de design
 \`\`\`
 
-## 🛠️ Como Rodar o Projeto
+## 🛠 Tecnologias Utilizadas
 
-### Pré-requisitos
+- **Framework**: [Next.js 16](https://nextjs.org/) (App Router)
+- **Linguagem**: [TypeScript](https://www.typescriptlang.org/)
+- **Estilização**: [Tailwind CSS v4](https://tailwindcss.com/)
+- **Componentes UI**: [shadcn/ui](https://ui.shadcn.com/)
+- **Ícones**: [Lucide React](https://lucide.dev/)
+- **Gerenciador de Pacotes**: pnpm
 
-- Node.js 18+ instalado
-- npm, yarn ou pnpm
+## 🚀 Como Executar
 
-### Instalação
-
-1. Clone o repositório:
+1. **Clone o repositório**
 \`\`\`bash
 git clone <url-do-repositorio>
-cd projeto-lar-temporario
+cd arquivo-comprimido
 \`\`\`
 
-2. Instale as dependências:
+2. **Instale as dependências**
 \`\`\`bash
-npm install
-# ou
-yarn install
-# ou
 pnpm install
 \`\`\`
 
-3. Execute o servidor de desenvolvimento:
+3. **Execute o servidor de desenvolvimento**
 \`\`\`bash
-npm run dev
-# ou
-yarn dev
-# ou
 pnpm dev
 \`\`\`
 
-4. Abra [http://localhost:3000](http://localhost:3000) no navegador para visualizar o projeto.
+4. **Acesse no navegador**
+\`\`\`
+http://localhost:3000
+\`\`\`
 
-### Scripts Disponíveis
+## 👥 Papéis de Usuário
 
-- `npm run dev` - Inicia o servidor de desenvolvimento
-- `npm run build` - Cria build de produção
-- `npm run start` - Inicia servidor de produção
-- `npm run lint` - Executa linting do código
+### 🔑 Líder
+Possui permissões completas no sistema:
+- ✅ Cadastrar, editar e remover gatos
+- ✅ Cadastrar e gerenciar veterinários
+- ✅ Criar, editar e **deletar** eventos (medicação/consulta)
+- ✅ Atribuir turnos para si mesma
+- ✅ Visualizar todas as escalas
+- ✅ Gerenciar voluntários
 
-## 📱 Design Responsivo
+### 👤 Voluntária
+Possui permissões limitadas:
+- ✅ Visualizar gatos cadastrados
+- ✅ Atribuir turnos de alimentação para si mesma
+- ✅ Marcar tarefas como concluídas
+- ✅ Visualizar escalas e eventos
+- ❌ **NÃO pode** cadastrar/editar gatos
+- ❌ **NÃO pode** deletar eventos
+- ❌ **NÃO pode** gerenciar veterinários
 
-O projeto foi desenvolvido com abordagem mobile-first e é totalmente responsivo, funcionando perfeitamente em:
-- Smartphones
-- Tablets
-- Desktops
+## 📦 Módulos do Sistema
+
+### 1. Autenticação (`/login`, `/cadastro`)
+Sistema de login e cadastro de usuários com validação de e-mail e senha.
+
+**Arquivos principais:**
+- `app/login/page.tsx`: Interface de login
+- `app/cadastro/page.tsx`: Registro de novos voluntários
+
+### 2. Gestão de Gatos (`/gatos`)
+Cadastro e gerenciamento completo de gatos do gatil.
+
+**Arquivos principais:**
+- `app/gatos/page.tsx`: Listagem de gatos com busca
+- `app/gatos/novo/page.tsx`: Formulário de cadastro
+- `app/gatos/[id]/page.tsx`: Visualização detalhada
+- `app/gatos/[id]/editar/page.tsx`: Edição de informações
+- `components/cat-card.tsx`: Componente de card de gato
+
+**Campos do cadastro:**
+\`\`\`typescript
+interface Cat {
+  id: string
+  nome: string
+  idade: number
+  sexo: 'Macho' | 'Fêmea'
+  raca: string
+  temperamento: 'Dócil' | 'Não dócil'
+  castrado: boolean
+  condicoes?: string // Condições especiais
+  foto?: string
+}
+\`\`\`
+
+### 3. Escalas e Turnos (`/escalas`)
+Gerenciamento de limpeza, socialização, medicação e consultas veterinárias.
+
+**Arquivos principais:**
+- `app/escalas/page.tsx`: Interface principal de escalas com abas
+
+**Abas Disponíveis:**
+- 🧹 **Limpeza**: Turnos de limpeza do gatil
+- 🐾 **Socialização**: Turnos de socialização com os gatos
+- 💊 **Medicação**: Eventos de medicação
+- 🏥 **Consultas**: Agendamentos de consultas veterinárias
+
+**Tipos de Eventos:**
+
+#### 🧹 Limpeza
+- 2 turnos fixos por dia: Manhã e Tarde
+- Turnos gerados automaticamente pelo sistema
+- Cada turno pode ser atribuído a um voluntário
+- Checkbox habilitado apenas após seleção do voluntário
+- Desmarcar checkbox remove seleção automaticamente
+- Não pode ser deletado (turnos automáticos)
+
+\`\`\`typescript
+interface CleaningShift {
+  id: string
+  periodo: 'Manhã' | 'Tarde'
+  voluntario?: string // Nome do voluntário atribuído
+  concluido: boolean
+}
+\`\`\`
+
+#### 🐾 Socialização
+- 2 turnos fixos por dia: Manhã e Tarde
+- Turnos gerados automaticamente pelo sistema
+- Mesma lógica de atribuição da limpeza
+- Não pode ser deletado (turnos automáticos)
+
+\`\`\`typescript
+interface SocializationShift {
+  id: string
+  periodo: 'Manhã' | 'Tarde'
+  voluntario?: string
+  concluido: boolean
+}
+\`\`\`
+
+#### 💊 Medicação
+- Cadastro livre de medicamentos
+- Campos: gato, data, hora, medicamento, veterinário
+- Apenas líder pode deletar
+
+\`\`\`typescript
+interface Medication {
+  id: string
+  gatoId: string
+  data: string
+  hora: string
+  medicamento: string
+  veterinarioId: string
+  voluntario?: string // Quem vai aplicar
+  concluido: boolean
+}
+\`\`\`
+
+#### 🏥 Consulta Veterinária
+- Agendamento de consultas
+- Campos: gato, data, hora, veterinário, local
+- Atribuição de acompanhante
+- Apenas líder pode deletar
+
+\`\`\`typescript
+interface Consultation {
+  id: string
+  gatoId: string
+  data: string
+  hora: string
+  veterinarioId: string
+  local: string
+  voluntario?: string // Quem vai acompanhar
+  concluido: boolean
+}
+\`\`\`
+
+**Fluxo de Seleção:**
+1. Usuário clica em "Selecionar" → atribui turno para si mesma
+2. Checkbox fica habilitado
+3. Usuário marca checkbox → conclui tarefa
+4. Desmarcar checkbox → remove conclusão E seleção
+
+**Diferenças entre tipos de turno:**
+- **Automáticos** (Limpeza/Socialização): Gerados pelo sistema, não podem ser deletados
+- **Manuais** (Medicação/Consultas): Criados por líder, podem ser deletados apenas pela líder
+
+### 4. Perfil (`/perfil`)
+Visualização e edição de informações do usuário.
+
+**Arquivos principais:**
+- `app/perfil/page.tsx`: Visualização do perfil
+- `app/perfil/editar/page.tsx`: Edição de informações
+
+**Campos do perfil:**
+\`\`\`typescript
+interface UserProfile {
+  nome: string
+  email: string
+  telefone: string
+  foto?: string
+  tipo: 'lider' | 'voluntaria'
+  veterinarios?: Veterinarian[] // Apenas para líder
+}
+
+interface Veterinarian {
+  id: string
+  nome: string
+  clinica: string
+}
+\`\`\`
+
+**Funcionalidades da líder:**
+- Gerenciar lista de veterinários
+- Adicionar novo veterinário (nome + clínica)
+- Remover veterinários cadastrados
+
+### 5. Notificações (`/notificacoes`)
+Sistema de notificações e alertas.
+
+**Arquivos principais:**
+- `app/notificacoes/page.tsx`: Lista de notificações
+- `hooks/use-toast.ts`: Hook para notificações toast
 
 ## 🎨 Paleta de Cores
 
-O projeto utiliza um sistema de design tokens personalizados com tons terrosos e aconchegantes:
-- **Primary**: Tons de marrom/terracota (#B08968)
-- **Secondary**: Tons bege claro
-- **Background**: Bege suave (#E6DDD5)
-- **Accent**: Laranja coral
+O sistema utiliza uma paleta de cores terrosas e quentes:
 
-## 🔐 Autenticação
+\`\`\`css
+/* Tokens de Design (globals.css) */
+--primary: #CC5804;           /* Laranja principal */
+--primary-foreground: #FFFFFF; /* Texto em elementos primários */
 
-O sistema utiliza autenticação via Google OAuth para garantir segurança e facilidade de acesso aos usuários.
+--background: #E8DCC4;         /* Fundo principal - bege claro */
+--foreground: #1A1A1A;         /* Texto principal - preto suave */
+
+--card: #D4C4A8;               /* Fundo de cards - bege médio */
+--card-foreground: #1A1A1A;    /* Texto em cards */
+
+--popover: #CDC5A5;            /* Fundo de popups/dialogs - bege */
+--popover-foreground: #1A1A1A; /* Texto em popups */
+
+--muted: #C7B89A;              /* Elementos secundários */
+--muted-foreground: #5A5A5A;   /* Texto secundário */
+
+--accent: #CC5804;             /* Cor de destaque - laranja */
+--accent-foreground: #FFFFFF;  /* Texto em elementos de destaque */
+
+--border: #CC5804;             /* Bordas - laranja */
+--input: #C7B89A;              /* Fundo de inputs - bege escuro */
+--ring: #CC5804;               /* Outline de foco */
+\`\`\`
+
+**Aplicações de cor:**
+- **#CC5804 (Laranja)**: Botões principais, bordas, links, ícones ativos
+- **#E8DCC4 (Bege claro)**: Fundo da aplicação
+- **#D4C4A8 (Bege médio)**: Cards e containers
+- **#CDC5A5 (Bege)**: Dialogs, popups (opaco)
+- **#C7B89A (Bege escuro)**: Inputs, elementos hover
+
+## 🔗 Navegação
+
+### Desktop
+- Header fixo no topo com links de navegação
+- Logo clicável para voltar à home
+- Menu de perfil no canto superior direito
+
+### Mobile
+- Bottom navigation bar com 5 itens:
+  - 🏠 Home
+  - 🐱 Gatos
+  - 📅 Escalas
+  - 🔔 Notificações
+  - 👤 Perfil
+
+**Arquivo:** `components/bottom-nav.tsx`
+
+## 📝 Convenções de Código
+
+### Nomenclatura
+- **Componentes**: PascalCase (`CatCard`, `PageHeader`)
+- **Arquivos**: kebab-case (`cat-card.tsx`, `page-header.tsx`)
+- **Variáveis**: camelCase (`currentUser`, `isSelected`)
+- **Constantes**: UPPER_SNAKE_CASE (`MAX_CATS`, `DEFAULT_PERIOD`)
+
+### Estrutura de Componentes
+\`\`\`typescript
+'use client' // Apenas se necessário
+
+import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+
+interface ComponentProps {
+  // Props do componente
+}
+
+export default function Component({ prop }: ComponentProps) {
+  // Estado e lógica
+  const [state, setState] = useState()
+
+  // Handlers
+  const handleClick = () => {
+    // Lógica
+  }
+
+  // Render
+  return (
+    <div>
+      {/* JSX */}
+    </div>
+  )
+}
+\`\`\`
+
+### Comentários
+- Use comentários para explicar **por quê**, não **o quê**
+- Documente lógica complexa
+- Marque TODOs claramente: `// TODO: Implementar validação`
+
+## 🔄 Fluxo de Dados
+
+\`\`\`
+Usuario faz login
+    ↓
+Sistema identifica tipo (lider/voluntaria)
+    ↓
+Renderiza interface com permissões apropriadas
+    ↓
+Usuario interage com escalas
+    ↓
+Clica em "Selecionar" → atribui para si mesma
+    ↓
+Checkbox habilitado
+    ↓
+Marca checkbox → tarefa concluída
+    ↓
+Desmarca checkbox → remove conclusão E seleção
+\`\`\`
+
+## 🐛 Debug
+
+Para debugar, use console.log com prefixo [v0]:
+
+\`\`\`typescript
+console.log('[v0] Estado atual:', state)
+console.log('[v0] Usuário selecionado:', selectedUser)
+\`\`\`
 
 ## 📄 Licença
 
-Este projeto é privado e destinado ao uso interno do Projeto Lar Temporário.
+Projeto desenvolvido como trabalho acadêmico para a disciplina SSC0536 - Projeto e Desenvolvimento de Sistemas de Informação.
 
-## 👥 Contribuindo
+## 👨‍💻 Créditos
 
-Este é um projeto em desenvolvimento. Para contribuir, entre em contato com a equipe de desenvolvimento.
+**Integrantes:**
+- Diogo Melo - 12563522
+- Gabriel Costa - 14785489
+- Isabella Arão - 9265732
+- Leonardo Pereira - 9039361
+- Marina Fagundes - 9265405
+- Raphael Bonaccorsi - 12563366
+
+**Informações Acadêmicas:**
+- Disciplina: SSC0536 - Projeto e Desenvolvimento de Sistemas de Informação
+- Curso: Bacharelado em Sistemas de Informação
+- Universidade: Universidade de São Paulo (USP)
+- Ano: 2025
 
 ---
+
+Desenvolvido com ❤️ para ajudar gatinhos resgatados 🐱

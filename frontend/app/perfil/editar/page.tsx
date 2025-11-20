@@ -5,7 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Cat, User, X, Plus, Minus } from "lucide-react"
+import { User, X, Plus, Minus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,13 +14,13 @@ import { BottomNav } from "@/components/bottom-nav"
 import { Card, CardContent } from "@/components/ui/card"
 import { PageHeader } from "@/components/page-header"
 
-// Mock do usuário atual
 const currentUser = {
   role: "LIDER", // ou "VOLUNTARIA"
 }
 
 export default function EditarPerfilPage() {
   const router = useRouter()
+
   const isLeader = currentUser.role === "LIDER"
 
   const [volunteers, setVolunteers] = useState([
@@ -31,6 +31,8 @@ export default function EditarPerfilPage() {
   ])
 
   const [cats, setCats] = useState(["Rio", "Molta", "Mimo", "Brownie"])
+
+  // Estes veterinários aparecem no dropdown de criação de eventos
   const [vets, setVets] = useState([
     { name: "Simone", clinic: "Clínica Auau Miau" },
     { name: "Simone", clinic: "Clínica Auau Miau" },
@@ -42,15 +44,35 @@ export default function EditarPerfilPage() {
   const [showNewVolunteerForm, setShowNewVolunteerForm] = useState(false)
   const [showNewVetForm, setShowNewVetForm] = useState(false)
 
+  /**
+   * Salva as alterações do perfil
+   *
+   * TODO: Conectar com banco de dados
+   * - Salvar informações pessoais
+   * - Atualizar lista de voluntários/veterinários
+   * - Sincronizar com outras partes do sistema
+   */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     router.push("/perfil")
   }
 
+  /**
+   * Remove voluntário da lista
+   * Apenas líder tem permissão
+   */
   const removeVolunteer = (index: number) => {
     setVolunteers(volunteers.filter((_, i) => i !== index))
   }
 
+  /**
+   * Remove veterinário da lista
+   *
+   * IMPORTANTE: Ao remover um veterinário daqui,
+   * ele deixa de aparecer no dropdown de /escalas
+   *
+   * @param index - Índice do veterinário na lista
+   */
   const removeVet = (index: number) => {
     setVets(vets.filter((_, i) => i !== index))
   }
@@ -65,13 +87,6 @@ export default function EditarPerfilPage() {
               <button className="w-10 h-10 bg-transparent hover:bg-muted rounded-full flex items-center justify-center transition-colors">
                 <X className="w-5 h-5" />
               </button>
-            </Link>
-          }
-          rightButton={
-            <Link href="/escalas">
-              <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center cursor-pointer hover:bg-accent transition-colors">
-                <Cat className="w-6 h-6 text-white" />
-              </div>
             </Link>
           }
         />
@@ -112,14 +127,17 @@ export default function EditarPerfilPage() {
 
                 {isLeader && (
                   <>
+                    {/* Gerenciamento de voluntários */}
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <Label>Voluntários</Label>
+                        {/* Botão (+) para adicionar novo voluntário */}
                         <Plus
-                          className="w-5 h-5 text-primary cursor-pointer"
+                          className="w-5 h-5 text-foreground cursor-pointer hover:text-primary"
                           onClick={() => setShowNewVolunteerForm(!showNewVolunteerForm)}
                         />
                       </div>
+                      {/* Lista de voluntários existentes */}
                       {volunteers.map((vol, index) => (
                         <div key={index} className="flex items-start gap-2 mb-3 bg-secondary/50 rounded-lg p-3">
                           <div className="flex-1 space-y-2">
@@ -135,17 +153,19 @@ export default function EditarPerfilPage() {
                               </SelectContent>
                             </Select>
                           </div>
+                          {/* Botão (-) para remover voluntário */}
                           <Button
                             type="button"
                             size="sm"
                             onClick={() => removeVolunteer(index)}
-                            className="bg-transparent hover:bg-muted text-primary p-2 h-auto"
+                            className="bg-transparent hover:bg-muted text-foreground p-2 h-auto"
                           >
                             <Minus className="w-4 h-4" />
                           </Button>
                         </div>
                       ))}
 
+                      {/* Formulário de novo voluntário */}
                       {showNewVolunteerForm && (
                         <div className="space-y-2 p-3 bg-secondary/30 rounded-lg">
                           <h4 className="text-sm font-semibold">Novo(a) voluntário(a)</h4>
@@ -171,11 +191,13 @@ export default function EditarPerfilPage() {
                       )}
                     </div>
 
+                    {/* Lista de gatos (apenas visualização) */}
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <Label>Gatos</Label>
+                        {/* Link para cadastro de novo gato */}
                         <Link href="/gatos/novo">
-                          <Plus className="w-5 h-5 text-primary cursor-pointer" />
+                          <Plus className="w-5 h-5 text-foreground cursor-pointer hover:text-primary" />
                         </Link>
                       </div>
                       <div className="bg-secondary/50 rounded-lg p-3 space-y-1">
@@ -187,11 +209,12 @@ export default function EditarPerfilPage() {
                       </div>
                     </div>
 
+                    {/* CRÍTICO: Esta lista é sincronizada com /escalas */}
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <Label>Veterinários</Label>
                         <Plus
-                          className="w-5 h-5 text-primary cursor-pointer"
+                          className="w-5 h-5 text-foreground cursor-pointer hover:text-primary"
                           onClick={() => setShowNewVetForm(!showNewVetForm)}
                         />
                       </div>
@@ -204,17 +227,19 @@ export default function EditarPerfilPage() {
                             <p className="text-sm font-semibold text-foreground">{vet.name}</p>
                             <p className="text-xs text-foreground/70">{vet.clinic}</p>
                           </div>
+                          {/* Botão (-) para remover veterinário */}
                           <Button
                             type="button"
                             size="sm"
                             onClick={() => removeVet(index)}
-                            className="bg-transparent hover:bg-muted text-primary p-2 h-auto"
+                            className="bg-transparent hover:bg-muted text-foreground p-2 h-auto"
                           >
                             <Minus className="w-4 h-4" />
                           </Button>
                         </div>
                       ))}
 
+                      {/* Formulário de novo veterinário */}
                       {showNewVetForm && (
                         <div className="space-y-2 p-3 bg-secondary/30 rounded-lg">
                           <h4 className="text-sm font-semibold">Novo(a) veterinário(a)</h4>

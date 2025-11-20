@@ -5,13 +5,14 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Cat, X, Plus, Minus } from "lucide-react"
+import { X, Plus, Minus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { BottomNav } from "@/components/bottom-nav"
 import { Card, CardContent } from "@/components/ui/card"
+import { PageHeader } from "@/components/page-header"
 
 const catsData: Record<string, any> = {
   rio: {
@@ -36,7 +37,7 @@ const catsData: Record<string, any> = {
     raca: "SRD",
     temperamento: "docil",
     castrado: "sim",
-    foto: "/gato-laranja-f-mea.jpg",
+    foto: "/black-and-white-cat.png",
     vacinas: [
       { nome: "V4", data: "15/02/2024" },
       { nome: "Antirrábica", data: "10/01/2025" },
@@ -51,7 +52,7 @@ const catsData: Record<string, any> = {
     raca: "Persa",
     temperamento: "docil",
     castrado: "sim",
-    foto: "/gato-persa-branco.jpg",
+    foto: "/siamese-cat.png",
     vacinas: [
       { nome: "V4", data: "20/04/2024" },
       { nome: "Antirrábica", data: "15/02/2025" },
@@ -66,7 +67,7 @@ const catsData: Record<string, any> = {
     raca: "SRD",
     temperamento: "docil",
     castrado: "nao",
-    foto: "/gato-marrom-filhote.jpg",
+    foto: "/brown-persian-cat.jpg",
     vacinas: [{ nome: "V4", data: "10/06/2024" }],
     historicoSaude: ["Filhote saudável"],
     observacoes: ["Ainda precisa castrar"],
@@ -100,21 +101,16 @@ export default function EditarGatoPage({ params }: { params: { id: string } }) {
     <>
       <div className="min-h-screen pb-20 bg-background">
         <div className="max-w-md mx-auto">
-          <header className="bg-card px-4 py-4 flex items-center justify-between border-b border-border">
-            <Link href={`/gatos/${params.id}`}>
-              <button className="w-10 h-10 bg-transparent hover:bg-muted rounded-full flex items-center justify-center transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </Link>
-
-            <h1 className="text-xl font-bold">EDITAR GATO</h1>
-
-            <Link href="/escalas">
-              <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center cursor-pointer hover:bg-accent transition-colors">
-                <Cat className="w-6 h-6 text-white" />
-              </div>
-            </Link>
-          </header>
+          <PageHeader
+            title="EDITAR GATO"
+            leftButton={
+              <Link href={`/gatos/${params.id}`}>
+                <button className="w-10 h-10 bg-transparent hover:bg-muted rounded-full flex items-center justify-center transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </Link>
+            }
+          />
 
           <div className="px-4 py-6">
             <Card className="border-border bg-card">
@@ -194,7 +190,7 @@ export default function EditarGatoPage({ params }: { params: { id: string } }) {
                         type="button"
                         size="sm"
                         onClick={adicionarVacina}
-                        className="bg-transparent hover:bg-muted text-primary p-2 h-auto"
+                        className="bg-transparent hover:bg-muted text-foreground p-2 h-auto"
                       >
                         <Plus className="w-4 h-4" />
                       </Button>
@@ -217,7 +213,7 @@ export default function EditarGatoPage({ params }: { params: { id: string } }) {
                           type="button"
                           size="sm"
                           onClick={() => removerVacina(index)}
-                          className="bg-transparent hover:bg-muted text-primary p-2 h-auto"
+                          className="bg-transparent hover:bg-muted text-foreground p-2 h-auto"
                         >
                           <Minus className="w-4 h-4" />
                         </Button>
@@ -232,7 +228,7 @@ export default function EditarGatoPage({ params }: { params: { id: string } }) {
                         type="button"
                         size="sm"
                         onClick={adicionarHistorico}
-                        className="bg-transparent hover:bg-muted text-primary p-2 h-auto"
+                        className="bg-transparent hover:bg-muted text-foreground p-2 h-auto"
                       >
                         <Plus className="w-4 h-4" />
                       </Button>
@@ -253,7 +249,7 @@ export default function EditarGatoPage({ params }: { params: { id: string } }) {
                           type="button"
                           size="sm"
                           onClick={() => removerHistorico(index)}
-                          className="bg-transparent hover:bg-muted text-primary p-2 h-auto"
+                          className="bg-transparent hover:bg-muted text-foreground p-2 h-auto"
                         >
                           <Minus className="w-4 h-4" />
                         </Button>
@@ -268,7 +264,7 @@ export default function EditarGatoPage({ params }: { params: { id: string } }) {
                         type="button"
                         size="sm"
                         onClick={adicionarObservacao}
-                        className="bg-transparent hover:bg-muted text-primary p-2 h-auto"
+                        className="bg-transparent hover:bg-muted text-foreground p-2 h-auto"
                       >
                         <Plus className="w-4 h-4" />
                       </Button>
@@ -289,7 +285,7 @@ export default function EditarGatoPage({ params }: { params: { id: string } }) {
                           type="button"
                           size="sm"
                           onClick={() => removerObservacao(index)}
-                          className="bg-transparent hover:bg-muted text-primary p-2 h-auto"
+                          className="bg-transparent hover:bg-muted text-foreground p-2 h-auto"
                         >
                           <Minus className="w-4 h-4" />
                         </Button>

@@ -69,8 +69,8 @@ export default function PerfilPage() {
 
           <Card className="border-border bg-card">
             <CardContent className="p-6 space-y-3">
-              <h3 className="font-bold text-sm">INFORMAÇÕES</h3>
               <div className="bg-secondary/50 rounded-lg p-3">
+                <h4 className="font-bold text-sm mb-2">INFORMAÇÕES</h4>
                 <p className="text-sm text-foreground mb-1">Naira Souza</p>
                 <p className="text-sm text-foreground mb-1">{userData.phone}</p>
                 <p className="text-sm text-foreground">{userData.birthDate}</p>

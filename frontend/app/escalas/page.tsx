@@ -3,8 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
-import { Cat, Plus, ChevronLeft, ChevronRight } from "lucide-react"
-import Link from "next/link"
+import { Cat, Plus, ChevronLeft, ChevronRight, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { BottomNav } from "@/components/bottom-nav"
@@ -13,7 +12,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { PageHeader } from "@/components/page-header"
 
+// Determina as permissões do usuário no sistema
 const currentUser = {
   name: "Isabella Ardo",
   role: "LIDER", // ou "VOLUNTARIA"
@@ -26,10 +27,10 @@ const registeredCats = [
   { id: "4", name: "Caramelo" },
 ]
 
-const veterinaryClinics = [
+// Sincronizado com o cadastro em /perfil/editar
+const leaderVeterinarians = [
   { id: "1", name: "Clínica Auau Miau", vet: "Simone" },
-  { id: "2", name: "Pet Center", vet: "Dr. João" },
-  { id: "3", name: "Vet Care", vet: "Dra. Maria" },
+  { id: "2", name: "Clínica Auau Miau", vet: "Simone" },
 ]
 
 type TabType = "limpeza" | "socializacao" | "medicacao" | "consultas"
@@ -121,6 +122,7 @@ export default function EscalasPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
 
   const [selectedShifts, setSelectedShifts] = useState<any[]>([])
+  const [completedShifts, setCompletedShifts] = useState<any[]>([])
   const [createdEvents, setCreatedEvents] = useState<any[]>([
     {
       id: "1",
@@ -147,9 +149,15 @@ export default function EscalasPage() {
 
   const calendar = generateCalendar(currentMonth, currentYear)
 
+  // Apenas líder pode criar eventos de medicação e consulta
   const canCreateEvents = currentUser.role === "LIDER" && (activeTab === "medicacao" || activeTab === "consultas")
+
   const isAutomaticShifts = activeTab === "limpeza" || activeTab === "socializacao"
 
+  /**
+   * Verifica se há eventos cadastrados em um dia específico
+   * Usado para exibir indicador visual (ponto) no calendário
+   */
   const hasEventOnDay = (day: number) => {
     const dateStr = `${day}/${currentMonth + 1}`
     return createdEvents.some(
@@ -157,6 +165,10 @@ export default function EscalasPage() {
     )
   }
 
+  /**
+   * Navega para o mês anterior
+   * Trata a transição de ano automaticamente
+   */
   const goToPreviousMonth = () => {
     if (currentMonth === 0) {
       setCurrentMonth(11)
@@ -166,6 +178,10 @@ export default function EscalasPage() {
     }
   }
 
+  /**
+   * Navega para o próximo mês
+   * Trata a transição de ano automaticamente
+   */
   const goToNextMonth = () => {
     if (currentMonth === 11) {
       setCurrentMonth(0)
@@ -175,24 +191,68 @@ export default function EscalasPage() {
     }
   }
 
+  /**
+   * Manipula o clique em um dia do calendário
+   * Apenas dias futuros podem ser selecionados
+   */
   const handleDayClick = (day: any) => {
     if (day && !day.isPast) {
       setSelectedDate(day.date)
     }
   }
 
-  const handleSelectShift = (event: any) => {
+  /**
+   * Atribui ou remove atribuição de turno ao usuário atual
+   *
+   * Fluxo:
+   * 1. Usuário clica em "Selecionar"
+   * 2. Sistema atribui o turno ao usuário logado
+   * 3. Checkbox de conclusão é habilitado
+   *
+   * @param event - Objeto do evento/turno
+   */
+  const handleSelectVolunteer = (event: any) => {
     const existingIndex = selectedShifts.findIndex((s) => s.id === event.id)
 
     if (existingIndex >= 0) {
       // Remove seleção
       setSelectedShifts(selectedShifts.filter((s) => s.id !== event.id))
     } else {
-      // Adiciona seleção com nome do usuário
       setSelectedShifts([...selectedShifts, { ...event, volunteer: currentUser.name }])
     }
   }
 
+  /**
+   * Marca ou desmarca tarefa como concluída
+   *
+   * Regras importantes:
+   * - Só pode marcar como concluído APÓS selecionar o turno
+   * - Desmarcar o checkbox remove TANTO a conclusão quanto a seleção
+   *
+   * @param event - Objeto do evento/turno
+   */
+  const handleCompleteTask = (event: any) => {
+    const isSelected = selectedShifts.some((s) => s.id === event.id)
+
+    if (!isSelected && !event.volunteer) return
+
+    const existingIndex = completedShifts.findIndex((s) => s.id === event.id)
+
+    if (existingIndex >= 0) {
+      setCompletedShifts(completedShifts.filter((s) => s.id !== event.id))
+      setSelectedShifts(selectedShifts.filter((s) => s.id !== event.id))
+    } else {
+      // Marca como completo
+      setCompletedShifts([...completedShifts, event])
+    }
+  }
+
+  /**
+   * Cria novo evento de medicação ou consulta
+   * Apenas líder tem permissão para criar eventos
+   *
+   * @param eventData - Dados do formulário de criação
+   */
   const handleCreateEvent = (eventData: any) => {
     const newEvent = {
       id: `${Date.now()}`,
@@ -205,6 +265,27 @@ export default function EscalasPage() {
     setIsCreateDialogOpen(false)
   }
 
+  /**
+   * Deleta um evento existente
+   *
+   * Restrições de segurança:
+   * - Apenas líder pode deletar
+   * - Apenas eventos de medicação e consulta podem ser deletados
+   * - Turnos automáticos (limpeza/socialização) não podem ser deletados
+   *
+   * @param eventId - ID do evento a ser deletado
+   */
+  const handleDeleteEvent = (eventId: string) => {
+    if (currentUser.role !== "LIDER") return
+    setCreatedEvents(createdEvents.filter((e) => e.id !== eventId))
+  }
+
+  /**
+   * Retorna os eventos para a data selecionada
+   *
+   * Para limpeza/socialização: gera turnos automáticos
+   * Para medicação/consultas: busca eventos criados
+   */
   const getEventsForSelectedDate = () => {
     if (!selectedDate) return []
 
@@ -222,35 +303,23 @@ export default function EscalasPage() {
   return (
     <>
       <div className="min-h-screen pb-20 bg-background">
-        <header className="border-b sticky top-0 z-10 bg-card border-border">
-          <div className="max-w-5xl mx-auto px-4 py-4 sm:px-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-10"></div>
+        <PageHeader title="ESCALAS" />
 
-              <h1 className="text-xl font-bold">ESCALAS</h1>
-
-              <Link href="/escalas">
-                <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center cursor-pointer hover:bg-accent transition-colors">
-                  <Cat className="w-6 h-6 text-white" />
-                </div>
-              </Link>
-            </div>
-
-            <div className="flex flex-wrap gap-2 pb-2">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${
-                    activeTab === tab.id ? "bg-primary text-white" : "bg-muted text-muted-foreground hover:bg-secondary"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+          <div className="flex flex-wrap gap-2 py-4">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${
+                  activeTab === tab.id ? "bg-primary text-white" : "bg-muted text-muted-foreground hover:bg-secondary"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
-        </header>
+        </div>
 
         {/* Content */}
         <main className="max-w-5xl mx-auto px-4 py-4 space-y-4">
@@ -318,7 +387,7 @@ export default function EscalasPage() {
                     CRIAR EVENTO
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="bg-card border-border">
+                <DialogContent>
                   <DialogHeader>
                     <DialogTitle>EVENTOS</DialogTitle>
                   </DialogHeader>
@@ -333,6 +402,7 @@ export default function EscalasPage() {
             )}
           </div>
 
+          {/* Lista de Eventos */}
           <div className="space-y-3">
             {eventsToDisplay.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">
@@ -341,15 +411,18 @@ export default function EscalasPage() {
             ) : (
               eventsToDisplay.map((event) => {
                 const isSelected = selectedShifts.some((s) => s.id === event.id)
+                const isCompleted = completedShifts.some((s) => s.id === event.id)
                 const displayVolunteer = isSelected ? currentUser.name : event.volunteer
+                const canDelete = currentUser.role === "LIDER" && !isAutomaticShifts
+                const canComplete = isSelected || event.volunteer
 
                 return (
                   <Card key={event.id} className="border border-border bg-card">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg">
                         <div className="flex items-center gap-3 flex-1">
-                          <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-primary/10">
-                            <Cat className="w-5 h-5 text-primary" />
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-secondary/30">
+                            <Cat className="w-5 h-5 text-foreground" />
                           </div>
                           <div className="flex-1">
                             {isAutomaticShifts ? (
@@ -358,7 +431,12 @@ export default function EscalasPage() {
                                 {displayVolunteer ? (
                                   <Badge className="bg-primary text-white border-0">{displayVolunteer}</Badge>
                                 ) : (
-                                  <span className="text-primary">Selecionar</span>
+                                  <button
+                                    onClick={() => handleSelectVolunteer(event)}
+                                    className="text-foreground/60 font-medium hover:text-primary transition-colors"
+                                  >
+                                    Selecionar
+                                  </button>
                                 )}
                               </p>
                             ) : (
@@ -383,22 +461,41 @@ export default function EscalasPage() {
                                   {displayVolunteer ? (
                                     <Badge className="bg-primary text-white border-0">{displayVolunteer}</Badge>
                                   ) : (
-                                    <span className="text-primary text-sm">Selecionar</span>
+                                    <button
+                                      onClick={() => handleSelectVolunteer(event)}
+                                      className="text-foreground/60 text-sm font-medium hover:text-primary transition-colors"
+                                    >
+                                      Selecionar
+                                    </button>
                                   )}
                                 </div>
                               </>
                             )}
                           </div>
                         </div>
-                        {(!displayVolunteer || isSelected) && (
-                          <input
-                            type="checkbox"
-                            checked={isSelected || !!displayVolunteer}
-                            onChange={() => handleSelectShift(event)}
-                            className="w-5 h-5 rounded border-2 border-primary accent-primary cursor-pointer"
-                          />
-                        )}
-                        {displayVolunteer && !isSelected && <span className="text-xl text-primary">✓</span>}
+                        <div className="flex items-center gap-2">
+                          {canDelete && (
+                            <button
+                              onClick={() => handleDeleteEvent(event.id)}
+                              className="p-2 hover:bg-muted rounded-full transition-colors text-destructive"
+                              title="Deletar evento"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                          <div className="ml-4">
+                            <input
+                              type="checkbox"
+                              checked={isCompleted}
+                              onChange={() => handleCompleteTask(event)}
+                              disabled={!canComplete}
+                              className={`w-5 h-5 rounded border-2 border-primary accent-primary ${
+                                canComplete ? "cursor-pointer" : "cursor-not-allowed opacity-50"
+                              }`}
+                              title={canComplete ? "Marcar como concluído" : "Selecione um voluntário primeiro"}
+                            />
+                          </div>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -414,6 +511,20 @@ export default function EscalasPage() {
   )
 }
 
+/**
+ * Formulário de Criação de Eventos
+ *
+ * Usado para criar eventos de medicação e consultas veterinárias
+ *
+ * Campos do formulário:
+ * - Medicação: gato, data, hora, medicamento
+ * - Consulta: gato, data, hora, veterinário/clínica
+ *
+ * @param type - Tipo do evento (medicacao ou consultas)
+ * @param selectedDate - Data pré-selecionada no calendário
+ * @param onSave - Callback executado ao salvar
+ * @param onClose - Callback para fechar o dialog
+ */
 function CreateEventForm({
   type,
   selectedDate,
@@ -431,8 +542,12 @@ function CreateEventForm({
   const [date, setDate] = useState(selectedDate ? selectedDate.toISOString().split("T")[0] : "")
   const [time, setTime] = useState("")
 
-  const selectedClinicData = veterinaryClinics.find((c) => c.id === selectedClinic)
+  const selectedClinicData = leaderVeterinarians.find((c) => c.id === selectedClinic)
 
+  /**
+   * Processa o envio do formulário
+   * Formata os dados e chama o callback onSave
+   */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -494,7 +609,7 @@ function CreateEventForm({
           onChange={(e) => setTime(e.target.value)}
           required
           placeholder="--:--"
-          className="bg-secondary/50 border-border text-foreground placeholder:text-foreground/60 [&::-webkit-datetime-edit-text]:text-foreground/60 [&::-webkit-datetime-edit-hour-field]:text-foreground [&::-webkit-datetime-edit-minute-field]:text-foreground"
+          className="bg-secondary/50 border-border text-foreground placeholder:text-foreground/80 [&::-webkit-datetime-edit-text]:text-foreground/80 [&::-webkit-datetime-edit-hour-field]:text-foreground [&::-webkit-datetime-edit-minute-field]:text-foreground"
         />
       </div>
 
@@ -519,7 +634,7 @@ function CreateEventForm({
                 <SelectValue placeholder="Selecione a veterinária" />
               </SelectTrigger>
               <SelectContent>
-                {veterinaryClinics.map((clinic) => (
+                {leaderVeterinarians.map((clinic) => (
                   <SelectItem key={clinic.id} value={clinic.id}>
                     {clinic.name} - {clinic.vet}
                   </SelectItem>
