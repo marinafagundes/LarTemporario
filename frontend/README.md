@@ -63,7 +63,7 @@ Sistema web completo para gerenciamento de gatil, desenvolvido para facilitar o 
 
 ## 📁 Estrutura do Projeto
 
-\`\`\`
+```
 /
 ├── app/                          # Páginas Next.js (App Router)
 │   ├── cadastro/                 # Página de cadastro de voluntários
@@ -108,7 +108,7 @@ Sistema web completo para gerenciamento de gatil, desenvolvido para facilitar o 
 │
 └── styles/                       # Estilos globais
     └── globals.css               # CSS global com tokens de design
-\`\`\`
+```
 
 ## 🛠 Tecnologias Utilizadas
 
