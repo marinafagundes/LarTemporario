@@ -1,31 +1,97 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Edit, LogOut, Mail, Phone, Calendar, Award, Settings } from "lucide-react"
+import { Edit, LogOut, Mail, Phone, Award, Settings, User, Shield, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { BottomNav } from "@/components/bottom-nav"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Skeleton } from "@/components/ui/skeleton"
+import { authApi } from "@/lib/api/auth"
+import { usuariosApi } from "@/lib/api/usuarios"
+import { Database } from "@/lib/supabase"
 
-// Mock data
-const userData = {
-  name: "Maria Silva",
-  email: "maria.silva@example.com",
-  phone: "(11) 98765-4321",
-  joinDate: "Março de 2024",
-  image: "/placeholder.svg?key=user1",
-  stats: {
-    totalDays: 87,
-    favoriteCat: "Luna",
-    monthsActive: 10,
-  },
-  preferences: {
-    notifications: true,
-    emailUpdates: true,
-    reminderTime: "1 dia antes",
-  },
-}
+type Usuario = Database['public']['Tables']['usuarios']['Row']
 
 export default function ProfilePage() {
+  const router = useRouter()
+  const [usuario, setUsuario] = useState<Usuario | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    async function loadUserData() {
+      try {
+        setLoading(true)
+        setError("")
+        
+        const isAuth = await authApi.isAuthenticated()
+        if (!isAuth) {
+          router.push("/login")
+          return
+        }
+
+        const userData = await usuariosApi.getCurrent()
+        setUsuario(userData)
+      } catch (err: any) {
+        console.error("Error loading user data:", err)
+        setError("Failed to load your data. Please try again.")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadUserData()
+  }, [router])
+
+  const handleLogout = async () => {
+    try {
+      await authApi.signOut()
+      router.push("/login")
+    } catch (err) {
+      console.error("Error logging out:", err)
+    }
+  }
+
+  if (loading) {
+    return (
+      <>
+        <div className="min-h-screen bg-background pb-20">
+          <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
+            <div className="flex flex-col items-center gap-4 mb-6">
+              <Skeleton className="w-24 h-24 rounded-full" />
+              <Skeleton className="h-8 w-48" />
+            </div>
+            <Skeleton className="h-64 w-full" />
+          </div>
+        </div>
+        <BottomNav />
+      </>
+    )
+  }
+
+  if (error || !usuario) {
+    return (
+      <>
+        <div className="min-h-screen bg-background pb-20">
+          <div className="max-w-3xl mx-auto px-4 py-6">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {error || "Failed to load your data."}
+              </AlertDescription>
+            </Alert>
+          </div>
+        </div>
+        <BottomNav />
+      </>
+    )
+  }
+
   return (
     <>
       <div className="min-h-screen bg-background pb-20">
@@ -34,22 +100,17 @@ export default function ProfilePage() {
           <div className="max-w-3xl mx-auto px-4 py-6">
             <div className="flex flex-col items-center gap-4">
               <Avatar className="w-24 h-24">
-                <AvatarImage src={userData.image || "/placeholder.svg"} alt={userData.name} />
                 <AvatarFallback className="text-2xl">
-                  {userData.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")}
+                  <User className="w-12 h-12" />
                 </AvatarFallback>
               </Avatar>
               <div className="text-center">
-                <h1 className="text-2xl font-bold text-foreground">{userData.name}</h1>
-                <p className="text-text-muted">Membro desde {userData.joinDate}</p>
+                <h1 className="text-2xl font-bold text-foreground">{usuario.nome}</h1>
               </div>
               <Link href="/profile/edit">
                 <Button variant="outline" className="border-border rounded-full bg-transparent">
                   <Edit className="w-4 h-4 mr-2" />
-                  Editar Perfil
+                  Edit Profile
                 </Button>
               </Link>
             </div>
@@ -58,19 +119,29 @@ export default function ProfilePage() {
 
         {/* Content */}
         <main className="max-w-3xl mx-auto px-4 py-6 space-y-4">
-          {/* Stats */}
+          {/* Account Info */}
           <Card className="border-border">
             <CardHeader>
-              <CardTitle className="text-lg">Estatísticas</CardTitle>
+              <CardTitle className="text-lg">Account Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Calendar className="w-6 h-6 text-primary" />
+                  <User className="w-6 h-6 text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm text-text-muted">Total de dias de cuidado</p>
-                  <p className="text-xl font-bold text-foreground">{userData.stats.totalDays} dias</p>
+                  <p className="text-sm text-text-muted">Full Name</p>
+                  <p className="text-xl font-bold text-foreground">{usuario.nome}</p>
+                </div>
+              </div>
+              <Separator />
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Shield className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm text-text-muted">Role</p>
+                  <p className="text-xl font-bold text-foreground">{usuario.perfil}</p>
                 </div>
               </div>
               <Separator />
@@ -79,18 +150,10 @@ export default function ProfilePage() {
                   <Award className="w-6 h-6 text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm text-text-muted">Gato favorito</p>
-                  <p className="text-xl font-bold text-foreground">{userData.stats.favoriteCat}</p>
-                </div>
-              </div>
-              <Separator />
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Calendar className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-text-muted">Meses ativos</p>
-                  <p className="text-xl font-bold text-foreground">{userData.stats.monthsActive} meses</p>
+                  <p className="text-sm text-text-muted">Status</p>
+                  <p className="text-xl font-bold text-foreground">
+                    {usuario.ativo ? "Active" : "Inactive"}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -99,70 +162,23 @@ export default function ProfilePage() {
           {/* Contact Info */}
           <Card className="border-border">
             <CardHeader>
-              <CardTitle className="text-lg">Informações de Contato</CardTitle>
+              <CardTitle className="text-lg">Contact Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-3">
                 <Mail className="w-5 h-5 text-text-muted" />
                 <div>
                   <p className="text-sm text-text-muted">Email</p>
-                  <p className="text-foreground">{userData.email}</p>
+                  <p className="text-foreground">{usuario.email}</p>
                 </div>
               </div>
               <Separator />
               <div className="flex items-center gap-3">
                 <Phone className="w-5 h-5 text-text-muted" />
                 <div>
-                  <p className="text-sm text-text-muted">Telefone</p>
-                  <p className="text-foreground">{userData.phone}</p>
+                  <p className="text-sm text-text-muted">Phone</p>
+                  <p className="text-foreground">{usuario.telefone || "Not provided"}</p>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Preferences */}
-          <Card className="border-border">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Settings className="w-5 h-5 text-primary" />
-                Preferências
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold text-foreground">Notificações Push</p>
-                  <p className="text-sm text-text-muted">Receber alertas no dispositivo</p>
-                </div>
-                <div
-                  className={`w-12 h-6 rounded-full ${userData.preferences.notifications ? "bg-primary" : "bg-border"} relative cursor-pointer transition-colors`}
-                >
-                  <div
-                    className={`w-5 h-5 rounded-full bg-white absolute top-0.5 ${userData.preferences.notifications ? "right-0.5" : "left-0.5"} transition-all`}
-                  />
-                </div>
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold text-foreground">Atualizações por Email</p>
-                  <p className="text-sm text-text-muted">Receber novidades por email</p>
-                </div>
-                <div
-                  className={`w-12 h-6 rounded-full ${userData.preferences.emailUpdates ? "bg-primary" : "bg-border"} relative cursor-pointer transition-colors`}
-                >
-                  <div
-                    className={`w-5 h-5 rounded-full bg-white absolute top-0.5 ${userData.preferences.emailUpdates ? "right-0.5" : "left-0.5"} transition-all`}
-                  />
-                </div>
-              </div>
-              <Separator />
-              <div>
-                <p className="font-semibold text-foreground mb-2">Lembrete de Escala</p>
-                <p className="text-sm text-text-muted">
-                  Enviar lembrete:{" "}
-                  <span className="text-foreground font-semibold">{userData.preferences.reminderTime}</span>
-                </p>
               </div>
             </CardContent>
           </Card>
@@ -171,21 +187,22 @@ export default function ProfilePage() {
           <div className="space-y-3">
             <Link href="/notifications">
               <Button variant="outline" className="w-full border-border rounded-full justify-start bg-transparent">
-                Ver Notificações
+                View Notifications
               </Button>
             </Link>
             <Link href="/profile/settings">
               <Button variant="outline" className="w-full border-border rounded-full justify-start bg-transparent">
                 <Settings className="w-5 h-5 mr-2" />
-                Configurações
+                Settings
               </Button>
             </Link>
             <Button
+              onClick={handleLogout}
               variant="outline"
               className="w-full border-destructive text-destructive hover:bg-destructive hover:text-white rounded-full justify-start bg-transparent"
             >
               <LogOut className="w-5 h-5 mr-2" />
-              Sair
+              Sign Out
             </Button>
           </div>
         </main>

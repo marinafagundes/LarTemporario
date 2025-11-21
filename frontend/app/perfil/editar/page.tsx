@@ -1,60 +1,88 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { User, X, Plus, Minus } from "lucide-react"
+import { User, X, AlertCircle, CheckCircle, Loader2, Plus, Minus } from "lucide-react"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { BottomNav } from "@/components/bottom-nav"
 import { Card, CardContent } from "@/components/ui/card"
 import { PageHeader } from "@/components/page-header"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Skeleton } from "@/components/ui/skeleton"
+import { authApi } from "@/lib/api/auth"
+import { usuariosApi } from "@/lib/api/usuarios"
+import { Database } from "@/lib/supabase"
 
-const currentUser = {
-  role: "LIDER", // ou "VOLUNTARIA"
-}
+type Usuario = Database['public']['Tables']['usuarios']['Row']
 
 export default function EditarPerfilPage() {
   const router = useRouter()
+  const [usuario, setUsuario] = useState<Usuario | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState("")
+  const [success, setSuccess] = useState(false)
+  
+  const [formData, setFormData] = useState({
+    nome: "",
+    telefone: "",
+    email: "",
+    senhaAtual: "",
+    novaSenha: "",
+    confirmarSenha: ""
+  })
 
-  const isLeader = currentUser.role === "LIDER"
-
-  const [volunteers, setVolunteers] = useState([
-    { name: "Isabella", email: "isabella@gmail.com", role: "Voluntária" },
-    { name: "Adriane", email: "adriane@gmail.com", role: "Voluntária" },
-    { name: "Milena", email: "milena@gmail.com", role: "Voluntária" },
-    { name: "Yasmin", email: "yasmin@gmail.com", role: "Voluntária" },
-  ])
-
-  const [cats, setCats] = useState(["Rio", "Molta", "Mimo", "Brownie"])
-
-  // Estes veterinários aparecem no dropdown de criação de eventos
-  const [vets, setVets] = useState([
-    { name: "Simone", clinic: "Clínica Auau Miau" },
-    { name: "Simone", clinic: "Clínica Auau Miau" },
-  ])
-
-  const [newVolunteer, setNewVolunteer] = useState({ email: "", role: "" })
-  const [newVet, setNewVet] = useState({ name: "", clinic: "" })
+  // Frontend-only UI state (from main branch - gerenciamento de voluntários, gatos, vets)
+  // TODO: Implementar APIs para carregar essas listas do banco de dados
+  const isLeader = usuario?.perfil === "Lider"
+  const [volunteers, setVolunteers] = useState<{ name: string; email: string; role: string }[]>([])
+  const [cats, setCats] = useState<string[]>([])
+  const [vets, setVets] = useState<{ name: string; clinic: string }[]>([])
 
   const [showNewVolunteerForm, setShowNewVolunteerForm] = useState(false)
+  const [newVolunteer, setNewVolunteer] = useState({ email: "", role: "voluntária" })
   const [showNewVetForm, setShowNewVetForm] = useState(false)
+  const [newVet, setNewVet] = useState({ name: "", clinic: "" })
 
-  /**
-   * Salva as alterações do perfil
-   *
-   * TODO: Conectar com banco de dados
-   * - Salvar informações pessoais
-   * - Atualizar lista de voluntários/veterinários
-   * - Sincronizar com outras partes do sistema
-   */
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    router.push("/perfil")
+  useEffect(() => {
+    async function loadUserData() {
+      try {
+        setLoading(true)
+        setError("")
+        
+        // Busca dados do usuário
+        const userData = await usuariosApi.getCurrent()
+        setUsuario(userData)
+        
+        // Preenche o formulário
+        setFormData({
+          nome: userData.nome || "",
+          telefone: userData.telefone || "",
+          email: userData.email || "",
+          senhaAtual: "",
+          novaSenha: "",
+          confirmarSenha: ""
+        })
+      } catch (err: any) {
+        console.error("Erro ao carregar dados do usuário:", err)
+        setError("Erro ao carregar seus dados. Tente novamente.")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadUserData()
+  }, [])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    })
   }
 
   /**
@@ -77,11 +105,91 @@ export default function EditarPerfilPage() {
     setVets(vets.filter((_, i) => i !== index))
   }
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!usuario) return
+    
+    setSaving(true)
+    setError("")
+    setSuccess(false)
+
+    try {
+      // Validações
+      if (!formData.nome || formData.nome.trim() === "") {
+        setError("O nome é obrigatório")
+        setSaving(false)
+        return
+      }
+
+      if (!formData.telefone || formData.telefone.trim() === "") {
+        setError("O telefone é obrigatório")
+        setSaving(false)
+        return
+      }
+
+      // Validação de senha (se fornecida)
+      if (formData.novaSenha || formData.confirmarSenha || formData.senhaAtual) {
+        if (!formData.senhaAtual) {
+          setError("Digite sua senha atual para alterar a senha")
+          setSaving(false)
+          return
+        }
+
+        if (!formData.novaSenha) {
+          setError("Digite a nova senha")
+          setSaving(false)
+          return
+        }
+
+        if (formData.novaSenha.length < 6) {
+          setError("A nova senha deve ter pelo menos 6 caracteres")
+          setSaving(false)
+          return
+        }
+
+        if (formData.novaSenha !== formData.confirmarSenha) {
+          setError("As senhas não coincidem")
+          setSaving(false)
+          return
+        }
+      }
+
+      // Atualiza os dados do usuário
+      await usuariosApi.update(usuario.id, {
+        nome: formData.nome,
+        telefone: formData.telefone
+      })
+
+      // Se o email mudou, atualiza também
+      if (formData.email !== usuario.email && formData.email.trim() !== "") {
+        await authApi.updateEmail(formData.email)
+      }
+
+      // Se forneceu nova senha, atualiza
+      if (formData.novaSenha) {
+        await authApi.updatePassword(formData.novaSenha)
+      }
+
+      setSuccess(true)
+      
+      // Redireciona após 1.5 segundos
+      setTimeout(() => {
+        router.push("/perfil")
+      }, 1500)
+    } catch (err: any) {
+      console.error("Erro ao atualizar perfil:", err)
+      setError(err.message || "Erro ao atualizar perfil. Tente novamente.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <>
       <div className="min-h-screen bg-background pb-20">
         <PageHeader
-          title="PERFIL"
+          title="EDITAR PERFIL"
           leftButton={
             <Link href="/perfil">
               <button className="w-10 h-10 bg-transparent hover:bg-muted rounded-full flex items-center justify-center transition-colors">
@@ -91,192 +199,330 @@ export default function EditarPerfilPage() {
           }
         />
 
-        <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6">
-          <div className="flex flex-col items-center gap-4 mb-6">
-            <div className="w-24 h-24 rounded-full bg-muted border-2 border-primary flex items-center justify-center">
-              <User className="w-12 h-12 text-muted-foreground" />
-            </div>
-            <Button className="bg-primary hover:bg-accent text-white rounded-full px-6 text-sm">Modificar foto</Button>
-          </div>
+        <div className="max-w-2xl mx-auto px-4 py-6 sm:px-6">
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-          <Card className="border-border bg-card">
-            <CardContent className="p-4 sm:p-6">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Nome</Label>
-                  <Input id="name" defaultValue="Naira Souza" className="bg-secondary/50 border-border" required />
+          {success && (
+            <Alert className="mb-4 border-green-500 bg-green-50 text-green-700">
+              <CheckCircle className="h-4 w-4" />
+              <AlertDescription>
+                Perfil atualizado com sucesso! Redirecionando...
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {loading ? (
+            <Card className="border-border bg-card">
+              <CardContent className="p-6 space-y-4">
+                <div className="flex flex-col items-center gap-4 mb-6">
+                  <Skeleton className="w-24 h-24 rounded-full" />
+                  <Skeleton className="h-10 w-32" />
                 </div>
-
-                <div>
-                  <Label htmlFor="phone">Telefone</Label>
-                  <Input id="phone" defaultValue="(16) XXXXX-XXXX" className="bg-secondary/50 border-border" required />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <div className="flex flex-col items-center gap-4 mb-6">
+                <div className="w-24 h-24 rounded-full bg-muted border-2 border-primary flex items-center justify-center">
+                  <User className="w-12 h-12 text-muted-foreground" />
                 </div>
+                {/* Funcionalidade de upload de foto pode ser implementada depois */}
+                {/* <Button className="bg-primary hover:bg-accent text-white rounded-full px-6 text-sm">
+                  Modificar foto
+                </Button> */}
+              </div>
 
-                <div>
-                  <Label htmlFor="birthDate">Data de nascimento</Label>
-                  <Input id="birthDate" defaultValue="DD/MM/AAAA" className="bg-secondary/50 border-border" required />
-                </div>
-
-                <div>
-                  <Label>Cargo</Label>
-                  <div className="bg-secondary/50 rounded-lg p-3">
-                    <p className="text-sm text-foreground">{isLeader ? "Líder" : "Voluntária"}</p>
-                    <p className="text-xs text-foreground/70 mt-1">O cargo não pode ser alterado</p>
-                  </div>
-                </div>
-
-                {isLeader && (
-                  <>
-                    {/* Gerenciamento de voluntários */}
+              <Card className="border-border bg-card">
+                <CardContent className="p-4 sm:p-6">
+                  <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <Label>Voluntários</Label>
-                        {/* Botão (+) para adicionar novo voluntário */}
-                        <Plus
-                          className="w-5 h-5 text-foreground cursor-pointer hover:text-primary"
-                          onClick={() => setShowNewVolunteerForm(!showNewVolunteerForm)}
-                        />
+                      <Label htmlFor="nome">
+                        Nome completo <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="nome"
+                        name="nome"
+                        type="text"
+                        value={formData.nome}
+                        onChange={handleChange}
+                        className="bg-muted border-border"
+                        placeholder="Seu nome completo"
+                        required
+                        disabled={saving}
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="telefone">
+                        Telefone <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="telefone"
+                        name="telefone"
+                        type="tel"
+                        value={formData.telefone}
+                        onChange={handleChange}
+                        className="bg-muted border-border"
+                        placeholder="(11) 99999-9999"
+                        required
+                        disabled={saving}
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        name="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={handleChange}
+                        className="bg-muted border-border"
+                        placeholder="seu@email.com"
+                        disabled={saving}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Alterar o email pode exigir confirmação
+                      </p>
+                    </div>
+
+                    <div>
+                      <Label>Perfil</Label>
+                      <div className="bg-muted rounded-lg p-3">
+                        <p className="text-sm text-foreground font-medium">
+                          {usuario?.perfil === "Lider" ? "Líder" : "Voluntário"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          O perfil não pode ser alterado
+                        </p>
                       </div>
-                      {/* Lista de voluntários existentes */}
-                      {volunteers.map((vol, index) => (
-                        <div key={index} className="flex items-start gap-2 mb-3 bg-secondary/50 rounded-lg p-3">
-                          <div className="flex-1 space-y-2">
-                            <p className="text-sm font-semibold text-foreground">{vol.name}</p>
-                            <p className="text-xs text-foreground/70">{vol.email}</p>
-                            <Select defaultValue={vol.role.toLowerCase()}>
-                              <SelectTrigger className="bg-card border-border h-8 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="voluntária">Voluntária</SelectItem>
-                                <SelectItem value="líder">Líder</SelectItem>
-                              </SelectContent>
-                            </Select>
+                    </div>
+
+                    {/* Seção de Alteração de Senha */}
+                    <div className="pt-4 border-t border-border">
+                      <h3 className="text-sm font-semibold mb-3">Alterar Senha (opcional)</h3>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <Label htmlFor="senhaAtual">Senha Atual</Label>
+                          <Input
+                            id="senhaAtual"
+                            name="senhaAtual"
+                            type="password"
+                            value={formData.senhaAtual}
+                            onChange={handleChange}
+                            className="bg-muted border-border"
+                            placeholder="Digite sua senha atual"
+                            disabled={saving}
+                          />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="novaSenha">Nova Senha</Label>
+                          <Input
+                            id="novaSenha"
+                            name="novaSenha"
+                            type="password"
+                            value={formData.novaSenha}
+                            onChange={handleChange}
+                            className="bg-muted border-border"
+                            placeholder="Mínimo 6 caracteres"
+                            disabled={saving}
+                          />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="confirmarSenha">Confirmar Nova Senha</Label>
+                          <Input
+                            id="confirmarSenha"
+                            name="confirmarSenha"
+                            type="password"
+                            value={formData.confirmarSenha}
+                            onChange={handleChange}
+                            className="bg-muted border-border"
+                            placeholder="Digite a nova senha novamente"
+                            disabled={saving}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Seções exclusivas para Líderes */}
+                    {isLeader && (
+                      <>
+                        {/* Gerenciamento de voluntários */}
+                        <div className="pt-4 border-t border-border">
+                          <div className="flex items-center justify-between mb-2">
+                            <Label>Voluntários</Label>
+                            {/* Botão (+) para adicionar novo voluntário */}
+                            <Plus
+                              className="w-5 h-5 text-foreground cursor-pointer hover:text-primary"
+                              onClick={() => setShowNewVolunteerForm(!showNewVolunteerForm)}
+                            />
                           </div>
-                          {/* Botão (-) para remover voluntário */}
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => removeVolunteer(index)}
-                            className="bg-transparent hover:bg-muted text-foreground p-2 h-auto"
-                          >
-                            <Minus className="w-4 h-4" />
-                          </Button>
+                          {/* Lista de voluntários existentes */}
+                          {volunteers.map((vol, index) => (
+                            <div key={index} className="flex items-start gap-2 mb-3 bg-secondary/50 rounded-lg p-3">
+                              <div className="flex-1 space-y-2">
+                                <p className="text-sm font-semibold text-foreground">{vol.name}</p>
+                                <p className="text-xs text-foreground/70">{vol.email}</p>
+                                <Select defaultValue={vol.role.toLowerCase()}>
+                                  <SelectTrigger className="bg-card border-border h-8 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="voluntária">Voluntária</SelectItem>
+                                    <SelectItem value="líder">Líder</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              {/* Botão (-) para remover voluntário */}
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => removeVolunteer(index)}
+                                className="bg-transparent hover:bg-muted text-foreground p-2 h-auto"
+                              >
+                                <Minus className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ))}
+
+                          {/* Formulário de novo voluntário */}
+                          {showNewVolunteerForm && (
+                            <div className="space-y-2 p-3 bg-secondary/30 rounded-lg">
+                              <h4 className="text-sm font-semibold">Novo(a) voluntário(a)</h4>
+                              <Input
+                                placeholder="Digite o e-mail do(a) novo(a) voluntário(a)"
+                                className="bg-card border-border text-sm"
+                                value={newVolunteer.email}
+                                onChange={(e) => setNewVolunteer({ ...newVolunteer, email: e.target.value })}
+                              />
+                              <Select
+                                value={newVolunteer.role}
+                                onValueChange={(value) => setNewVolunteer({ ...newVolunteer, role: value })}
+                              >
+                                <SelectTrigger className="bg-card border-border h-8 text-xs">
+                                  <SelectValue placeholder="Selecione o cargo" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="voluntária">Voluntária</SelectItem>
+                                  <SelectItem value="líder">Líder</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
                         </div>
-                      ))}
 
-                      {/* Formulário de novo voluntário */}
-                      {showNewVolunteerForm && (
-                        <div className="space-y-2 p-3 bg-secondary/30 rounded-lg">
-                          <h4 className="text-sm font-semibold">Novo(a) voluntário(a)</h4>
-                          <Input
-                            placeholder="Digite o e-mail do(a) novo(a) voluntário(a)"
-                            className="bg-card border-border text-sm"
-                            value={newVolunteer.email}
-                            onChange={(e) => setNewVolunteer({ ...newVolunteer, email: e.target.value })}
-                          />
-                          <Select
-                            value={newVolunteer.role}
-                            onValueChange={(value) => setNewVolunteer({ ...newVolunteer, role: value })}
-                          >
-                            <SelectTrigger className="bg-card border-border h-8 text-xs">
-                              <SelectValue placeholder="Selecione o cargo" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="voluntária">Voluntária</SelectItem>
-                              <SelectItem value="líder">Líder</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Lista de gatos (apenas visualização) */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <Label>Gatos</Label>
-                        {/* Link para cadastro de novo gato */}
-                        <Link href="/gatos/novo">
-                          <Plus className="w-5 h-5 text-foreground cursor-pointer hover:text-primary" />
-                        </Link>
-                      </div>
-                      <div className="bg-secondary/50 rounded-lg p-3 space-y-1">
-                        {cats.map((cat, index) => (
-                          <p key={index} className="text-sm">
-                            {cat}
-                          </p>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* CRÍTICO: Esta lista é sincronizada com /escalas */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <Label>Veterinários</Label>
-                        <Plus
-                          className="w-5 h-5 text-foreground cursor-pointer hover:text-primary"
-                          onClick={() => setShowNewVetForm(!showNewVetForm)}
-                        />
-                      </div>
-                      {vets.map((vet, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between gap-2 mb-2 bg-secondary/50 rounded-lg p-3"
-                        >
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold text-foreground">{vet.name}</p>
-                            <p className="text-xs text-foreground/70">{vet.clinic}</p>
+                        {/* Lista de gatos (apenas visualização) */}
+                        <div className="pt-4 border-t border-border">
+                          <div className="flex items-center justify-between mb-2">
+                            <Label>Gatos</Label>
+                            {/* Link para cadastro de novo gato */}
+                            <Link href="/gatos/novo">
+                              <Plus className="w-5 h-5 text-foreground cursor-pointer hover:text-primary" />
+                            </Link>
                           </div>
-                          {/* Botão (-) para remover veterinário */}
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => removeVet(index)}
-                            className="bg-transparent hover:bg-muted text-foreground p-2 h-auto"
-                          >
-                            <Minus className="w-4 h-4" />
-                          </Button>
+                          <div className="bg-secondary/50 rounded-lg p-3 space-y-1">
+                            {cats.map((cat, index) => (
+                              <p key={index} className="text-sm">
+                                {cat}
+                              </p>
+                            ))}
+                          </div>
                         </div>
-                      ))}
 
-                      {/* Formulário de novo veterinário */}
-                      {showNewVetForm && (
-                        <div className="space-y-2 p-3 bg-secondary/30 rounded-lg">
-                          <h4 className="text-sm font-semibold">Novo(a) veterinário(a)</h4>
-                          <Input
-                            placeholder="Digite o nome do(a) veterinário(a)"
-                            className="bg-card border-border text-sm"
-                            value={newVet.name}
-                            onChange={(e) => setNewVet({ ...newVet, name: e.target.value })}
-                          />
-                          <Input
-                            placeholder="Digite o nome da clínica"
-                            className="bg-card border-border text-sm"
-                            value={newVet.clinic}
-                            onChange={(e) => setNewVet({ ...newVet, clinic: e.target.value })}
-                          />
+                        {/* CRÍTICO: Esta lista é sincronizada com /escalas */}
+                        <div className="pt-4 border-t border-border">
+                          <div className="flex items-center justify-between mb-2">
+                            <Label>Veterinários</Label>
+                            <Plus
+                              className="w-5 h-5 text-foreground cursor-pointer hover:text-primary"
+                              onClick={() => setShowNewVetForm(!showNewVetForm)}
+                            />
+                          </div>
+                          {vets.map((vet, index) => (
+                            <div
+                              key={index}
+                              className="flex items-center justify-between gap-2 mb-2 bg-secondary/50 rounded-lg p-3"
+                            >
+                              <div className="flex-1">
+                                <p className="text-sm font-semibold text-foreground">{vet.name}</p>
+                                <p className="text-xs text-foreground/70">{vet.clinic}</p>
+                              </div>
+                              {/* Botão (-) para remover veterinário */}
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => removeVet(index)}
+                                className="bg-transparent hover:bg-muted text-foreground p-2 h-auto"
+                              >
+                                <Minus className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ))}
+
+                          {/* Formulário de novo veterinário */}
+                          {showNewVetForm && (
+                            <div className="space-y-2 p-3 bg-secondary/30 rounded-lg">
+                              <h4 className="text-sm font-semibold">Novo(a) veterinário(a)</h4>
+                              <Input
+                                placeholder="Digite o nome do(a) veterinário(a)"
+                                className="bg-card border-border text-sm"
+                                value={newVet.name}
+                                onChange={(e) => setNewVet({ ...newVet, name: e.target.value })}
+                              />
+                              <Input
+                                placeholder="Digite o nome da clínica"
+                                className="bg-card border-border text-sm"
+                                value={newVet.clinic}
+                                onChange={(e) => setNewVet({ ...newVet, clinic: e.target.value })}
+                              />
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </>
+                    )}
+
+                    <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="flex-1 border-border bg-transparent rounded-full"
+                        onClick={() => router.push("/perfil")}
+                        disabled={saving}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        type="submit"
+                        className="flex-1 bg-primary hover:bg-accent text-white rounded-full"
+                        disabled={saving || success}
+                      >
+                        {saving ? (
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Salvando...
+                          </div>
+                        ) : (
+                          "Salvar alterações"
+                        )}
+                      </Button>
                     </div>
-                  </>
-                )}
-
-                <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="flex-1 border-border bg-transparent rounded-full"
-                    onClick={() => router.push("/perfil")}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button type="submit" className="flex-1 bg-primary hover:bg-accent text-white rounded-full">
-                    Salvar alterações
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
+                  </form>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </div>
       </div>
 
