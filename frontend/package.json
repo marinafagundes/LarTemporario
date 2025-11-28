@@ -6,7 +6,8 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "eslint .",
-    "start": "next start"
+    "start": "next start",
+    "test:selenium": "mocha --timeout 60000 tests/selenium/**/*.test.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -67,7 +68,11 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "chai": "^6.2.1",
+    "chromedriver": "^142.0.3",
+    "mocha": "^11.7.5",
     "postcss": "^8.5",
+    "selenium-webdriver": "^4.38.0",
     "tailwindcss": "^4.1.9",
     "tw-animate-css": "1.3.3",
     "typescript": "^5"

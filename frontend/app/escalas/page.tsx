@@ -1,9 +1,10 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
-import { Cat, Plus, ChevronLeft, ChevronRight, Trash2 } from "lucide-react"
+import React, { useState, useMemo, useEffect } from "react"
+import { createClient } from "@supabase/supabase-js"
+import { Cat, Plus, ChevronLeft, ChevronRight } from "lucide-react"
+import { Trash2 } from "lucide-react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { BottomNav } from "@/components/bottom-nav"
@@ -14,24 +15,38 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PageHeader } from "@/components/page-header"
 
-// Determina as permissões do usuário no sistema
-const currentUser = {
-  name: "Isabella Ardo",
-  role: "LIDER", // ou "VOLUNTARIA"
+// helper de data disponível em todo o módulo
+const formatDateDM = (d: string | Date | null) => {
+  if (!d) return null
+  const dt = typeof d === "string" ? new Date(d) : d
+  return `${dt.getDate()}/${dt.getMonth() + 1}`
 }
 
-const registeredCats = [
-  { id: "1", name: "Rio" },
-  { id: "2", name: "Molta" },
-  { id: "3", name: "Brownie" },
-  { id: "4", name: "Caramelo" },
+// Supabase client (exige NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY)
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL as string, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string)
+
+const monthNames = [
+  "JANEIRO",
+  "FEVEREIRO",
+  "MARÇO",
+  "ABRIL",
+  "MAIO",
+  "JUNHO",
+  "JULHO",
+  "AGOSTO",
+  "SETEMBRO",
+  "OUTUBRO",
+  "NOVEMBRO",
+  "DEZEMBRO",
 ]
 
-// Sincronizado com o cadastro em /perfil/editar
-const leaderVeterinarians = [
+// clinics estático (ou substitua por fetch do DB)
+const veterinaryClinics: { id: string; name: string; vet: string }[] = [
   { id: "1", name: "Clínica Auau Miau", vet: "Simone" },
-  { id: "2", name: "Clínica Auau Miau", vet: "Simone" },
+  { id: "2", name: "Vet Pet Centro", vet: "Carlos" },
 ]
+// lista mínima para veterinários líderes (restaure da fonte correta se houver)
+const leaderVeterinarians: { id: string; name: string; vet: string }[] = veterinaryClinics
 
 type TabType = "limpeza" | "socializacao" | "medicacao" | "consultas"
 
@@ -44,12 +59,15 @@ const tabs: { id: TabType; label: string }[] = [
 
 const generateCalendar = (month: number, year: number) => {
   const days = []
+  // getDay(): 0 = Sunday ... 6 = Saturday
+  // ajusta para iniciar a semana na segunda (0 = Segunda)
   const firstDay = new Date(year, month, 1).getDay()
+  const firstDayMonday = (firstDay + 6) % 7
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const today = new Date()
 
   // Adiciona espaços vazios para alinhar o primeiro dia
-  for (let i = 0; i < firstDay; i++) {
+  for (let i = 0; i < firstDayMonday; i++) {
     days.push(null)
   }
 
@@ -97,21 +115,6 @@ const generateAutomaticEvents = (type: "limpeza" | "socializacao", selectedDate:
   ]
 }
 
-const monthNames = [
-  "JANEIRO",
-  "FEVEREIRO",
-  "MARÇO",
-  "ABRIL",
-  "MAIO",
-  "JUNHO",
-  "JULHO",
-  "AGOSTO",
-  "SETEMBRO",
-  "OUTUBRO",
-  "NOVEMBRO",
-  "DEZEMBRO",
-]
-
 export default function EscalasPage() {
   const today = new Date()
   const [currentMonth, setCurrentMonth] = useState(today.getMonth())
@@ -122,36 +125,117 @@ export default function EscalasPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
 
   const [selectedShifts, setSelectedShifts] = useState<any[]>([])
-  const [completedShifts, setCompletedShifts] = useState<any[]>([])
-  const [createdEvents, setCreatedEvents] = useState<any[]>([
-    {
-      id: "1",
-      type: "medicacao",
-      cat: "Brownie",
-      medicine: "Nebulização filhotes",
-      time: "8h",
-      date: `${today.getDate()}/${today.getMonth() + 1}`,
-      volunteer: null,
-      available: true,
-    },
-    {
-      id: "2",
-      type: "consultas",
-      cat: "Rio",
-      time: "10h",
-      date: `${today.getDate()}/${today.getMonth() + 1}`,
-      vet: "Simone",
-      clinic: "Clínica Auau Miau",
-      volunteer: null,
-      available: true,
-    },
-  ])
+  const [createdEvents, setCreatedEvents] = useState<any[]>([])
+  const [registeredCats, setRegisteredCats] = useState<{ id: string; name: string }[]>([])
+  const [currentUser, setCurrentUser] = useState<any>(null)
 
-  const calendar = generateCalendar(currentMonth, currentYear)
+  // popup / detalhes do dia
+  const [dayPopupEvents, setDayPopupEvents] = useState<any[] | null>(null)
+  const [isDayPopupOpen, setIsDayPopupOpen] = useState(false)
 
-  // Apenas líder pode criar eventos de medicação e consulta
-  const canCreateEvents = currentUser.role === "LIDER" && (activeTab === "medicacao" || activeTab === "consultas")
+  // carrega sessão, gatos e eventos do Supabase
+  useEffect(() => {
+    let mounted = true
 
+    const load = async () => {
+      // sessão
+      const { data: sessionData } = await supabase.auth.getSession()
+      const session = sessionData?.session
+      if (!mounted) return
+
+      if (session?.user) {
+        // busca usuário na tabela usuarios para obter nome/perfil (se existir)
+        const { data: userRow, error: userRowError } = await supabase
+          .from("usuarios")
+          .select("id,nome,perfil")
+          .eq("id", session.user.id)
+          .single()
+        if (!mounted) return
+
+        setCurrentUser({
+          id: session.user.id,
+          name: (userRow as any)?.nome || (session.user.user_metadata as any)?.name || session.user.email,
+          role: ((userRow as any)?.perfil || (session.user.user_metadata as any)?.role || "Voluntario") as string,
+        })
+      }
+
+      // gatos (map para id string para uso no Select)
+      const { data: gatosData, error: gatosError } = await supabase.from("gatos").select("id,nome")
+      if (!mounted) return
+      const gatosArray: any[] = gatosError ? [] : (gatosData ?? [])
+      setRegisteredCats(gatosArray.map((g: any) => ({ id: String(g.id), name: g.nome })))
+
+      // eventos (tabela "eventos" que você adicionou)
+      const { data: eventosData, error: eventosError } = await supabase
+        .from("eventos")
+        .select("id,tipo,turno,data_hora,gato_id,medicamento,clinica,disponivel,voluntario_id,escala_id")
+      if (!mounted) return
+      const eventos: any[] = eventosError ? [] : (eventosData ?? [])
+
+      // buscar gatos e usuarios referenciados para montar nomes
+      const gatoIds = Array.from(new Set(eventos.map((e) => e.gato_id).filter(Boolean)))
+      const voluntarioIds = Array.from(new Set(eventos.map((e) => e.voluntario_id).filter(Boolean)))
+
+      const gatosMap: Record<number, any> = {}
+      if (gatoIds.length) {
+        const { data: gatosRef } = await supabase.from("gatos").select("id,nome").in("id", gatoIds)
+        ;(gatosRef ?? []).forEach((g: any) => (gatosMap[g.id] = g))
+      }
+
+      const usuariosMap: Record<string, any> = {}
+      if (voluntarioIds.length) {
+        const { data: usuariosRef } = await supabase.from("usuarios").select("id,nome").in("id", voluntarioIds)
+        ;(usuariosRef ?? []).forEach((u: any) => (usuariosMap[u.id] = u))
+      }
+
+      // normaliza eventos para UI (shape parecido ao antigo "events")
+      const normalized: any[] = eventos.map((ev: any) => {
+        const dt = ev.data_hora ? new Date(ev.data_hora) : null
+        const tipoLower =
+          ev.tipo === "Medicação" ? "medicacao" : ev.tipo === "Consulta" ? "consultas" : ev.tipo === "Limpeza" ? "limpeza" : "socializacao"
+        return {
+          id: `evento-${ev.id}`,
+          db_id: ev.id,
+          type: tipoLower,
+          shift: ev.turno || null,
+          cat: ev.gato_id ? gatosMap[ev.gato_id]?.nome : null,
+          gato_id: ev.gato_id ?? null,
+          medicine: ev.medicamento || null,
+          time: dt ? dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
+          date: formatDateDM(dt),
+          vet: ev.veterinario_responsavel || null,
+          clinic: ev.clinica || ev.clinic || null,
+          volunteer: ev.voluntario_id ? usuariosMap[ev.voluntario_id]?.nome || ev.voluntario_id : null,
+          volunteer_id: ev.voluntario_id || null,
+          available: ev.disponivel ?? true,
+        }
+      })
+
+      if (!mounted) return
+      setCreatedEvents(normalized)
+    }
+
+    load()
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  // memoiza o calendário para não recalcular em cada render
+  const calendar = useMemo(() => generateCalendar(currentMonth, currentYear), [currentMonth, currentYear])
+
+  // indexa eventos por data ("D/M") para renderizar no calendário
+  const eventsByDate = useMemo(() => {
+    const map: Record<string, any[]> = {}
+    for (const ev of createdEvents) {
+      if (!ev?.date) continue
+      map[ev.date] = map[ev.date] || []
+      map[ev.date].push(ev)
+    }
+    return map
+  }, [createdEvents])
+
+  const canCreateEvents = (activeTab === "medicacao" || activeTab === "consultas")
   const isAutomaticShifts = activeTab === "limpeza" || activeTab === "socializacao"
 
   /**
@@ -201,68 +285,157 @@ export default function EscalasPage() {
     }
   }
 
-  /**
-   * Atribui ou remove atribuição de turno ao usuário atual
-   *
-   * Fluxo:
-   * 1. Usuário clica em "Selecionar"
-   * 2. Sistema atribui o turno ao usuário logado
-   * 3. Checkbox de conclusão é habilitado
-   *
-   * @param event - Objeto do evento/turno
-   */
-  const handleSelectVolunteer = (event: any) => {
-    const existingIndex = selectedShifts.findIndex((s) => s.id === event.id)
+  const handleSelectShift = async (event: any) => {
+    if (!currentUser) {
+      console.warn("Usuário não autenticado — operação cancelada")
+      return
+    }
 
-    if (existingIndex >= 0) {
-      // Remove seleção
-      setSelectedShifts(selectedShifts.filter((s) => s.id !== event.id))
-    } else {
-      setSelectedShifts([...selectedShifts, { ...event, volunteer: currentUser.name }])
+    try {
+      const existingIndex = selectedShifts.findIndex((s) => s.id === event.id)
+
+      if (existingIndex >= 0) {
+        // Deseleciona: atualiza DB para remover voluntário
+        setSelectedShifts((s) => s.filter((i) => i.id !== event.id))
+        if (event.db_id) {
+          const { error } = await supabase.from("eventos").update({ voluntario_id: null, disponivel: true }).eq("id", event.db_id)
+          if (error) throw error
+          setCreatedEvents((prev) => prev.map((ev) => (ev.db_id === event.db_id ? { ...ev, volunteer: null, volunteer_id: null, available: true } : ev)))
+        } else {
+          // caso inesperado: não tem db_id -> não faz nada ou remover criação anterior
+        }
+      } else {
+        // Seleciona: se já existe evento no DB atualiza voluntario_id, senão cria um evento tipo limpeza/socializacao
+        if (event.db_id) {
+          const { error } = await supabase.from("eventos").update({ voluntario_id: currentUser.id, disponivel: false }).eq("id", event.db_id)
+          if (error) throw error
+          setCreatedEvents((prev) => prev.map((ev) => (ev.db_id === event.db_id ? { ...ev, volunteer: currentUser.name, volunteer_id: currentUser.id, available: false } : ev)))
+          setSelectedShifts((s) => [...s, { ...event, volunteer: currentUser.name, volunteer_id: currentUser.id }])
+        } else {
+          // cria evento para turno automático (limpeza/socializacao)
+          // data_hora: usa meia-noite do dia representado por event.date (ex: "10/11")
+          const [dayStr, monthStr] = event.date.split("/")
+          const year = new Date().getFullYear()
+          const dateObj = new Date(Number(year), Number(monthStr) - 1, Number(dayStr), 8, 0, 0)
+          const toInsert: any = {
+            tipo: activeTab === "limpeza" ? "Limpeza" : "Socialização",
+            turno: event.shift,
+            data_hora: dateObj.toISOString(),
+            gato_id: null,
+            disponivel: false,
+            voluntario_id: currentUser.id,
+          }
+          const { data, error } = await supabase.from("eventos").insert([toInsert]).select().single()
+          if (error) throw error
+          const inserted = data
+          // normaliza e adiciona localmente
+          const normalized = {
+            id: `evento-${inserted.id}`,
+            db_id: inserted.id,
+            type: activeTab,
+            shift: inserted.turno,
+            cat: null,
+            gato_id: null,
+            medicine: inserted.medicamento || null,
+            time: new Date(inserted.data_hora).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            date: formatDateDM(inserted.data_hora),
+            vet: inserted.veterinario_responsavel || null,
+            clinic: inserted.clinica || null,
+            volunteer: currentUser.name,
+            volunteer_id: currentUser.id,
+            available: false,
+          }
+          setCreatedEvents((prev) => [...prev, normalized])
+          setSelectedShifts((s) => [...s, normalized])
+        }
+      }
+    } catch (err) {
+      console.error("Erro ao atualizar evento:", err)
     }
   }
 
-  /**
-   * Marca ou desmarca tarefa como concluída
-   *
-   * Regras importantes:
-   * - Só pode marcar como concluído APÓS selecionar o turno
-   * - Desmarcar o checkbox remove TANTO a conclusão quanto a seleção
-   *
-   * @param event - Objeto do evento/turno
-   */
-  const handleCompleteTask = (event: any) => {
-    const isSelected = selectedShifts.some((s) => s.id === event.id)
-
-    if (!isSelected && !event.volunteer) return
-
-    const existingIndex = completedShifts.findIndex((s) => s.id === event.id)
-
-    if (existingIndex >= 0) {
-      setCompletedShifts(completedShifts.filter((s) => s.id !== event.id))
-      setSelectedShifts(selectedShifts.filter((s) => s.id !== event.id))
-    } else {
-      // Marca como completo
-      setCompletedShifts([...completedShifts, event])
+  // Seleciona voluntário para um evento (medicação/consulta) — versão mínima
+  const handleSelectVolunteer = async (event: any) => {
+    if (!currentUser) {
+      console.warn("Usuário não autenticado — operação cancelada")
+      return
+    }
+    try {
+      // Atualiza DB se houver registro persistente
+      if (event.db_id) {
+        const { error } = await supabase.from("eventos").update({ voluntario_id: currentUser.id, disponivel: false }).eq("id", event.db_id)
+        if (error) throw error
+      }
+      // Atualiza localmente
+      setCreatedEvents((prev) => prev.map((ev) => (ev.id === event.id ? { ...ev, volunteer: currentUser.name, volunteer_id: currentUser.id, available: false } : ev)))
+      setSelectedShifts((s) => [...s, { ...event, volunteer: currentUser.name, volunteer_id: currentUser.id }])
+    } catch (err) {
+      console.error("Erro ao selecionar voluntário:", err)
     }
   }
 
-  /**
-   * Cria novo evento de medicação ou consulta
-   * Apenas líder tem permissão para criar eventos
-   *
-   * @param eventData - Dados do formulário de criação
-   */
-  const handleCreateEvent = (eventData: any) => {
-    const newEvent = {
-      id: `${Date.now()}`,
-      type: activeTab,
-      ...eventData,
-      volunteer: null,
-      available: true,
+  // Marca tarefa/evento como concluído (localmente). Ajuste para persistir no DB se necessário.
+  const handleCompleteTask = async (event: any) => {
+    if (!currentUser) return
+    try {
+      // Apenas atualiza localmente; adapte se tiver campo 'concluido' no backend
+      setCreatedEvents((prev) => prev.map((ev) => (ev.id === event.id ? { ...ev, completed: true } : ev)))
+    } catch (err) {
+      console.error("Erro ao marcar como concluído:", err)
     }
-    setCreatedEvents([...createdEvents, newEvent])
-    setIsCreateDialogOpen(false)
+  }
+
+  const handleCreateEvent = async (eventData: any) => {
+    try {
+      // eventData expected: { gato_id: number, date: "d/m", time: "HH:MM", medicine?, vet?, clinic? }
+      const [dayStr, monthStr] = eventData.date.split("/")
+      const year = new Date().getFullYear()
+      const [hour = "00", minute = "00"] = (eventData.time || "").split(":")
+      const dataHora = new Date(Number(year), Number(monthStr) - 1, Number(dayStr), Number(hour), Number(minute)).toISOString()
+
+      const payload: any = {
+        tipo: activeTab === "medicacao" ? "Medicação" : "Consulta",
+        data_hora: dataHora,
+        gato_id: eventData.gato_id ?? null,
+        disponivel: true,
+        voluntario_id: null,
+      }
+      if (activeTab === "medicacao") {
+        payload.medicamento = eventData.medicine
+      } else {
+        payload.veterinario_responsavel = eventData.vet
+        payload.clinica = eventData.clinic
+      }
+
+      const { data, error } = await supabase.from("eventos").insert([payload]).select().single()
+      if (error) throw error
+
+      // normaliza para UI
+      const inserted = data
+      const normalized = {
+        id: `evento-${inserted.id}`,
+        db_id: inserted.id,
+        type: activeTab,
+        shift: inserted.turno || null,
+        cat: inserted.gato_id ? registeredCats.find((c) => String(c.id) === String(inserted.gato_id))?.name : null,
+        gato_id: inserted.gato_id ?? null,
+        medicine: inserted.medicamento || null,
+        time: new Date(inserted.data_hora).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        date: (() => {
+          const d = new Date(inserted.data_hora)
+          return `${d.getDate()}/${d.getMonth() + 1}`
+        })(),
+        vet: inserted.veterinario_responsavel || null,
+        clinic: inserted.clinica || null,
+        volunteer: null,
+        volunteer_id: null,
+        available: inserted.disponivel ?? true,
+      }
+      setCreatedEvents((prev) => [...prev, normalized])
+      setIsCreateDialogOpen(false)
+    } catch (err) {
+      console.error("Erro ao criar evento", err)
+    }
   }
 
   /**
@@ -292,7 +465,8 @@ export default function EscalasPage() {
     const dateStr = `${selectedDate.getDate()}/${selectedDate.getMonth() + 1}`
 
     if (isAutomaticShifts) {
-      return generateAutomaticEvents(activeTab as "limpeza" | "socializacao", selectedDate, selectedShifts)
+      // usa createdEvents (normalizados de "eventos") para detectar se já existe turno salvo no DB
+      return generateAutomaticEvents(activeTab as "limpeza" | "socializacao", selectedDate, createdEvents)
     } else {
       return createdEvents.filter((e) => e.type === activeTab && e.date === dateStr)
     }
@@ -354,7 +528,7 @@ export default function EscalasPage() {
                     key={index}
                     onClick={() => day && handleDayClick(day)}
                     disabled={!day || day.isPast}
-                    className={`aspect-square flex flex-col items-center justify-center rounded-lg text-sm font-medium transition-colors relative ${
+                    className={`aspect-square flex flex-col items-start justify-start rounded-lg text-sm font-medium transition-colors relative px-2 py-2 ${
                       !day
                         ? ""
                         : day.isPast
@@ -366,7 +540,61 @@ export default function EscalasPage() {
                               : "hover:bg-muted"
                     }`}
                   >
-                    {day?.day}
+                    {/* número do dia fixo no canto superior esquerdo (sem z-index alto para não sobrepor o header) */}
+                    {day && (
+                      <div className="absolute top-2 left-2 w-6 h-6 flex items-center justify-center rounded-full bg-card/50 text-xs font-semibold pointer-events-none">
+                        <span className="select-none">{day.day}</span>
+                      </div>
+                    )}
+                    {/* linhas de eventos no dia (máx 3 exibidas, indicando tipo/hora) */}
+                    {day && (() => {
+                       const dateKey = `${day.day}/${currentMonth + 1}`
+                       const evs = eventsByDate[dateKey] || []
+                       if (evs.length === 0) return null
+                       return (
+                        // container ancorado em bottom, sem z alto para não sobrepor header/badges
+                        <div className="absolute left-2 right-2 bottom-2 flex flex-col gap-0.5 max-h-20 overflow-auto z-0">
+                           {evs.slice(0, 3).map((ev: any) => (
+                             <div
+                               key={ev.db_id ?? ev.id}
+                               title={`${ev.type.toUpperCase()} ${ev.time || ev.shift || ""} — ${ev.cat || ev.medicine || ev.vet || ""}`}
+                               className="flex items-center gap-1 text-[11px] leading-4 rounded px-1 py-0.5 text-white overflow-hidden whitespace-nowrap text-ellipsis"
+                               style={{
+                                 background:
+                                   ev.type === "medicacao" ? "#fb7185" /* rose */ :
+                                   ev.type === "consultas" ? "#f59e0b" /* amber */ :
+                                   ev.type === "limpeza" ? "#38bdf8" /* sky */ : "#34d399" /* green */,
+                               }}
+                            >
+                               <span className="font-semibold text-[10px]">{ev.time || (ev.shift ? ev.shift[0] : "")}</span>
+                               <span className="text-[10px] opacity-90 truncate">{ev.type === "medicacao" ? (ev.cat || ev.medicine) : ev.type === "consultas" ? (ev.cat || ev.vet) : (ev.shift ? `${ev.shift}` : (ev.cat || "Evento"))}</span>
+                             </div>
+                           ))}
+                          {/* se houver mais eventos, mostra contador clicável para abrir detalhes (não é <button> para evitar botão aninhado) */}
+                          {evs.length > 3 && (
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setDayPopupEvents(evs)
+                                setIsDayPopupOpen(true)
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.stopPropagation()
+                                  setDayPopupEvents(evs)
+                                  setIsDayPopupOpen(true)
+                                }
+                              }}
+                              className="text-[10px] text-muted-foreground/80 text-center underline cursor-pointer"
+                            >
+                              +{evs.length - 3}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
                     {day && !isAutomaticShifts && hasEventOnDay(day.day) && (
                       <div className="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-primary"></div>
                     )}
@@ -375,6 +603,39 @@ export default function EscalasPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Dialog para listar TODOS os eventos do dia (quando muitos) */}
+          <Dialog open={isDayPopupOpen} onOpenChange={setIsDayPopupOpen}>
+            <DialogContent className="bg-card bg-opacity-95 border-border max-w-md">
+              <DialogHeader>
+                <DialogTitle>Eventos do dia</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-2 max-h-80 overflow-auto py-2">
+                {(dayPopupEvents ?? []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhum evento</p>
+                ) : (
+                  (dayPopupEvents ?? []).map((ev: any) => (
+                    <div key={ev.db_id ?? ev.id} className="p-2 rounded-lg bg-secondary/50 flex items-start gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <div className="font-semibold text-sm">
+                            {ev.time || ev.shift || "—"} — {ev.type === "medicacao" ? "Medicação" : ev.type === "consultas" ? "Consulta" : ev.type === "limpeza" ? "Limpeza" : "Socialização"}
+                          </div>
+                          <div className="text-xs text-muted-foreground">{ev.available ? "Disponível" : "Alocado"}</div>
+                        </div>
+                        <div className="text-xs text-foreground/80 mt-1">
+                          {ev.cat ? `${ev.cat}` : ev.medicine ? `${ev.medicine}` : ev.vet ? `Vet: ${ev.vet}` : "Sem detalhe"}
+                        </div>
+                      </div>
+                      <div className="text-right text-xs">
+                        {ev.volunteer ? <div className="text-primary font-medium">{ev.volunteer}</div> : <div className="text-muted-foreground">—</div>}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* Events Section */}
           <div className="flex items-center justify-between">
@@ -394,6 +655,7 @@ export default function EscalasPage() {
                   <CreateEventForm
                     type={activeTab}
                     selectedDate={selectedDate}
+                    registeredCats={registeredCats}
                     onSave={handleCreateEvent}
                     onClose={() => setIsCreateDialogOpen(false)}
                   />
@@ -411,10 +673,11 @@ export default function EscalasPage() {
             ) : (
               eventsToDisplay.map((event) => {
                 const isSelected = selectedShifts.some((s) => s.id === event.id)
-                const isCompleted = completedShifts.some((s) => s.id === event.id)
-                const displayVolunteer = isSelected ? currentUser.name : event.volunteer
-                const canDelete = currentUser.role === "LIDER" && !isAutomaticShifts
-                const canComplete = isSelected || event.volunteer
+                const displayVolunteer = isSelected ? "Isabella Ardo" : event.volunteer
+                // permissões/estado por evento
+                const canDelete = currentUser?.role === "LIDER"
+                const canComplete = Boolean(event.volunteer || isSelected)
+                const isCompleted = !!(event as any).completed
 
                 return (
                   <Card key={event.id} className="border border-border bg-card">
@@ -528,11 +791,13 @@ export default function EscalasPage() {
 function CreateEventForm({
   type,
   selectedDate,
+  registeredCats,
   onSave,
   onClose,
 }: {
   type: "medicacao" | "consultas"
   selectedDate: Date | null
+  registeredCats: { id: string; name: string }[]
   onSave: (data: any) => void
   onClose: () => void
 }) {
@@ -555,7 +820,7 @@ function CreateEventForm({
     const dateStr = `${eventDate.getDate()}/${eventDate.getMonth() + 1}`
 
     const eventData: any = {
-      cat: registeredCats.find((c) => c.id === selectedCat)?.name,
+      gato_id: Number(selectedCat), // envia o id do gato para o backend
       date: dateStr,
       time,
     }
@@ -579,7 +844,7 @@ function CreateEventForm({
             <SelectValue placeholder="Selecione o gato" />
           </SelectTrigger>
           <SelectContent>
-            {registeredCats.map((cat) => (
+            {registeredCats.map((cat: { id: string; name: string }) => (
               <SelectItem key={cat.id} value={cat.id}>
                 {cat.name}
               </SelectItem>
@@ -634,7 +899,7 @@ function CreateEventForm({
                 <SelectValue placeholder="Selecione a veterinária" />
               </SelectTrigger>
               <SelectContent>
-                {leaderVeterinarians.map((clinic) => (
+                {veterinaryClinics.map((clinic: { id: string; name: string; vet: string }) => (
                   <SelectItem key={clinic.id} value={clinic.id}>
                     {clinic.name} - {clinic.vet}
                   </SelectItem>
@@ -661,4 +926,28 @@ function CreateEventForm({
       </div>
     </form>
   )
+}
+
+const createMedicationEvent = async (payload: { gato_id: number; data_hora_prevista: string; medicamento: string }) => {
+  // 1) cria escala
+  const escala = {
+    usuario_id: null, // sem voluntário inicialmente
+    data_hora_inicio: payload.data_hora_prevista,
+    data_hora_fim: payload.data_hora_prevista, // ajustar se necessário
+    tipo: "Medicação",
+  }
+  const { data: newEscala } = await supabase.from("escalas").insert([escala]).select().single()
+
+  // 2) cria medicacao vinculada
+  if (newEscala) {
+    const med = {
+      escala_id: newEscala.id,
+      gato_id: payload.gato_id,
+      medicamento: payload.medicamento,
+      data_hora_prevista: payload.data_hora_prevista,
+    }
+    const { data: newMed } = await supabase.from("medicacao").insert([med]).select().single()
+    return { newEscala, newMed }
+  }
+  return null
 }
