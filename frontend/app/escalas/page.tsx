@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useMemo, useEffect } from "react"
-import { createClient } from "@supabase/supabase-js"
+import { createClient } from "@/lib/supabase-browser"
 import { Cat, Plus, ChevronLeft, ChevronRight } from "lucide-react"
 import { Trash2 } from "lucide-react"
 import Link from "next/link"
@@ -15,15 +15,15 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PageHeader } from "@/components/page-header"
 
-// helper de data disponível em todo o módulo
+// helper de data
 const formatDateDM = (d: string | Date | null) => {
   if (!d) return null
   const dt = typeof d === "string" ? new Date(d) : d
   return `${dt.getDate()}/${dt.getMonth() + 1}`
 }
 
-// Supabase client (exige NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY)
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL as string, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string)
+// Supabase client
+const supabase = createClient()
 
 const monthNames = [
   "JANEIRO",
@@ -132,6 +132,10 @@ export default function EscalasPage() {
   // popup / detalhes do dia
   const [dayPopupEvents, setDayPopupEvents] = useState<any[] | null>(null)
   const [isDayPopupOpen, setIsDayPopupOpen] = useState(false)
+  
+  // popup de edição de evento
+  const [editingEvent, setEditingEvent] = useState<any | null>(null)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
 
   // carrega sessão, gatos e eventos do Supabase
   useEffect(() => {
@@ -235,8 +239,7 @@ export default function EscalasPage() {
     return map
   }, [createdEvents])
 
-  const canCreateEvents = (activeTab === "medicacao" || activeTab === "consultas")
-  const isAutomaticShifts = activeTab === "limpeza" || activeTab === "socializacao"
+  const canCreateEvents = true
 
   /**
    * Verifica se há eventos cadastrados em um dia específico
@@ -245,7 +248,7 @@ export default function EscalasPage() {
   const hasEventOnDay = (day: number) => {
     const dateStr = `${day}/${currentMonth + 1}`
     return createdEvents.some(
-      (e) => e.date === dateStr && (e.type === "medicacao" || e.type === "consultas") && activeTab === e.type,
+      (e) => e.date === dateStr && activeTab === e.type,
     )
   }
 
@@ -285,76 +288,7 @@ export default function EscalasPage() {
     }
   }
 
-  const handleSelectShift = async (event: any) => {
-    if (!currentUser) {
-      console.warn("Usuário não autenticado — operação cancelada")
-      return
-    }
-
-    try {
-      const existingIndex = selectedShifts.findIndex((s) => s.id === event.id)
-
-      if (existingIndex >= 0) {
-        // Deseleciona: atualiza DB para remover voluntário
-        setSelectedShifts((s) => s.filter((i) => i.id !== event.id))
-        if (event.db_id) {
-          const { error } = await supabase.from("eventos").update({ voluntario_id: null, disponivel: true }).eq("id", event.db_id)
-          if (error) throw error
-          setCreatedEvents((prev) => prev.map((ev) => (ev.db_id === event.db_id ? { ...ev, volunteer: null, volunteer_id: null, available: true } : ev)))
-        } else {
-          // caso inesperado: não tem db_id -> não faz nada ou remover criação anterior
-        }
-      } else {
-        // Seleciona: se já existe evento no DB atualiza voluntario_id, senão cria um evento tipo limpeza/socializacao
-        if (event.db_id) {
-          const { error } = await supabase.from("eventos").update({ voluntario_id: currentUser.id, disponivel: false }).eq("id", event.db_id)
-          if (error) throw error
-          setCreatedEvents((prev) => prev.map((ev) => (ev.db_id === event.db_id ? { ...ev, volunteer: currentUser.name, volunteer_id: currentUser.id, available: false } : ev)))
-          setSelectedShifts((s) => [...s, { ...event, volunteer: currentUser.name, volunteer_id: currentUser.id }])
-        } else {
-          // cria evento para turno automático (limpeza/socializacao)
-          // data_hora: usa meia-noite do dia representado por event.date (ex: "10/11")
-          const [dayStr, monthStr] = event.date.split("/")
-          const year = new Date().getFullYear()
-          const dateObj = new Date(Number(year), Number(monthStr) - 1, Number(dayStr), 8, 0, 0)
-          const toInsert: any = {
-            tipo: activeTab === "limpeza" ? "Limpeza" : "Socialização",
-            turno: event.shift,
-            data_hora: dateObj.toISOString(),
-            gato_id: null,
-            disponivel: false,
-            voluntario_id: currentUser.id,
-          }
-          const { data, error } = await supabase.from("eventos").insert([toInsert]).select().single()
-          if (error) throw error
-          const inserted = data
-          // normaliza e adiciona localmente
-          const normalized = {
-            id: `evento-${inserted.id}`,
-            db_id: inserted.id,
-            type: activeTab,
-            shift: inserted.turno,
-            cat: null,
-            gato_id: null,
-            medicine: inserted.medicamento || null,
-            time: new Date(inserted.data_hora).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            date: formatDateDM(inserted.data_hora),
-            vet: inserted.veterinario_responsavel || null,
-            clinic: inserted.clinica || null,
-            volunteer: currentUser.name,
-            volunteer_id: currentUser.id,
-            available: false,
-          }
-          setCreatedEvents((prev) => [...prev, normalized])
-          setSelectedShifts((s) => [...s, normalized])
-        }
-      }
-    } catch (err) {
-      console.error("Erro ao atualizar evento:", err)
-    }
-  }
-
-  // Seleciona voluntário para um evento (medicação/consulta) — versão mínima
+  // Seleciona voluntário para um evento
   const handleSelectVolunteer = async (event: any) => {
     if (!currentUser) {
       console.warn("Usuário não autenticado — operação cancelada")
@@ -387,22 +321,30 @@ export default function EscalasPage() {
 
   const handleCreateEvent = async (eventData: any) => {
     try {
-      // eventData expected: { gato_id: number, date: "d/m", time: "HH:MM", medicine?, vet?, clinic? }
+      // eventData expected: { gato_id?: number, date: "d/m", time: "HH:MM", shift?: string, medicine?, vet?, clinic? }
       const [dayStr, monthStr] = eventData.date.split("/")
       const year = new Date().getFullYear()
       const [hour = "00", minute = "00"] = (eventData.time || "").split(":")
       const dataHora = new Date(Number(year), Number(monthStr) - 1, Number(dayStr), Number(hour), Number(minute)).toISOString()
 
       const payload: any = {
-        tipo: activeTab === "medicacao" ? "Medicação" : "Consulta",
+        tipo: activeTab === "medicacao" ? "Medicação" : 
+              activeTab === "consultas" ? "Consulta" : 
+              activeTab === "limpeza" ? "Limpeza" : "Socialização",
         data_hora: dataHora,
         gato_id: eventData.gato_id ?? null,
         disponivel: true,
         voluntario_id: null,
       }
+      
+      // Adiciona turno para limpeza e socialização
+      if (activeTab === "limpeza" || activeTab === "socializacao") {
+        payload.turno = eventData.shift
+      }
+      
       if (activeTab === "medicacao") {
         payload.medicamento = eventData.medicine
-      } else {
+      } else if (activeTab === "consultas") {
         payload.veterinario_responsavel = eventData.vet
         payload.clinica = eventData.clinic
       }
@@ -439,18 +381,94 @@ export default function EscalasPage() {
   }
 
   /**
+   * Atualiza um evento existente
+   */
+  const handleUpdateEvent = async (eventData: any) => {
+    try {
+      if (!editingEvent?.db_id) return
+      
+      const [dayStr, monthStr] = eventData.date.split("/")
+      const year = new Date().getFullYear()
+      const [hour = "00", minute = "00"] = (eventData.time || "").split(":")
+      const dataHora = new Date(Number(year), Number(monthStr) - 1, Number(dayStr), Number(hour), Number(minute)).toISOString()
+
+      const payload: any = {
+        data_hora: dataHora,
+        gato_id: eventData.gato_id ?? null,
+      }
+      
+      if (editingEvent.type === "limpeza" || editingEvent.type === "socializacao") {
+        payload.turno = eventData.shift
+      } else if (editingEvent.type === "medicacao") {
+        payload.medicamento = eventData.medicine
+      } else if (editingEvent.type === "consultas") {
+        payload.veterinario_responsavel = eventData.vet
+        payload.clinica = eventData.clinic
+      }
+
+      const { error } = await supabase.from("eventos").update(payload).eq("id", editingEvent.db_id)
+      if (error) throw error
+
+      // Atualiza localmente
+      setCreatedEvents((prev) => prev.map((ev) => {
+        if (ev.db_id === editingEvent.db_id) {
+          return {
+            ...ev,
+            cat: eventData.gato_id ? registeredCats.find((c) => String(c.id) === String(eventData.gato_id))?.name : null,
+            gato_id: eventData.gato_id ?? null,
+            shift: payload.turno || ev.shift,
+            medicine: payload.medicamento || null,
+            time: new Date(dataHora).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            date: eventData.date,
+            vet: payload.veterinario_responsavel || null,
+            clinic: payload.clinica || null,
+          }
+        }
+        return ev
+      }))
+      
+      setIsEditDialogOpen(false)
+      setEditingEvent(null)
+    } catch (err) {
+      console.error("Erro ao atualizar evento:", err)
+    }
+  }
+
+  /**
    * Deleta um evento existente
    *
    * Restrições de segurança:
-   * - Apenas líder pode deletar
-   * - Apenas eventos de medicação e consulta podem ser deletados
-   * - Turnos automáticos (limpeza/socialização) não podem ser deletados
+   * - Todos podem deletar eventos que criaram
+   * - Líderes podem deletar qualquer evento
    *
    * @param eventId - ID do evento a ser deletado
+   * @param dbId - ID do evento no banco de dados
+   * @param eventVolunteerId - ID do voluntário associado ao evento
    */
-  const handleDeleteEvent = (eventId: string) => {
-    if (currentUser.role !== "LIDER") return
-    setCreatedEvents(createdEvents.filter((e) => e.id !== eventId))
+  const handleDeleteEvent = async (eventId: string, dbId?: number, eventVolunteerId?: string) => {
+    // Verifica permissões: líder pode deletar tudo, outros só podem deletar seus próprios eventos
+    const isEventOwner = eventVolunteerId === currentUser?.id
+    const isLeader = currentUser?.role === "LIDER"
+    
+    if (!isLeader && !isEventOwner && eventVolunteerId) {
+      alert("Você não tem permissão para deletar este evento. Apenas o voluntário responsável ou líderes podem deletar.")
+      return
+    }
+    
+    try {
+      // Remove do banco se tiver db_id
+      if (dbId) {
+        const { error } = await supabase.from("eventos").delete().eq("id", dbId)
+        if (error) throw error
+      }
+      
+      // Remove localmente
+      setCreatedEvents(createdEvents.filter((e) => e.id !== eventId))
+      setSelectedShifts((s) => s.filter((i) => i.id !== eventId))
+    } catch (err) {
+      console.error("Erro ao deletar evento:", err)
+      alert("Erro ao deletar evento. Tente novamente.")
+    }
   }
 
   /**
@@ -463,13 +481,7 @@ export default function EscalasPage() {
     if (!selectedDate) return []
 
     const dateStr = `${selectedDate.getDate()}/${selectedDate.getMonth() + 1}`
-
-    if (isAutomaticShifts) {
-      // usa createdEvents (normalizados de "eventos") para detectar se já existe turno salvo no DB
-      return generateAutomaticEvents(activeTab as "limpeza" | "socializacao", selectedDate, createdEvents)
-    } else {
-      return createdEvents.filter((e) => e.type === activeTab && e.date === dateStr)
-    }
+    return createdEvents.filter((e) => e.type === activeTab && e.date === dateStr)
   }
 
   const eventsToDisplay = getEventsForSelectedDate()
@@ -526,7 +538,17 @@ export default function EscalasPage() {
                 {calendar.map((day, index) => (
                   <button
                     key={index}
-                    onClick={() => day && handleDayClick(day)}
+                    onClick={(e) => {
+                      if (day && !day.isPast) {
+                        const dateKey = `${day.day}/${currentMonth + 1}`
+                        const evs = eventsByDate[dateKey] || []
+                        if (evs.length > 0) {
+                          setDayPopupEvents(evs)
+                          setIsDayPopupOpen(true)
+                        }
+                        handleDayClick(day)
+                      }
+                    }}
                     disabled={!day || day.isPast}
                     className={`aspect-square flex flex-col items-start justify-start rounded-lg text-sm font-medium transition-colors relative px-2 py-2 ${
                       !day
@@ -595,9 +617,6 @@ export default function EscalasPage() {
                         </div>
                       )
                     })()}
-                    {day && !isAutomaticShifts && hasEventOnDay(day.day) && (
-                      <div className="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-primary"></div>
-                    )}
                   </button>
                 ))}
               </div>
@@ -627,8 +646,22 @@ export default function EscalasPage() {
                           {ev.cat ? `${ev.cat}` : ev.medicine ? `${ev.medicine}` : ev.vet ? `Vet: ${ev.vet}` : "Sem detalhe"}
                         </div>
                       </div>
-                      <div className="text-right text-xs">
-                        {ev.volunteer ? <div className="text-primary font-medium">{ev.volunteer}</div> : <div className="text-muted-foreground">—</div>}
+                      <div className="flex items-center gap-2">
+                        <div className="text-right text-xs">
+                          {ev.volunteer ? <div className="text-foreground font-semibold">{ev.volunteer}</div> : <div className="text-muted-foreground">—</div>}
+                        </div>
+                        {/* Botão de deletar sempre visível, permissão verificada na função handleDeleteEvent */}
+                        <button
+                          onClick={() => {
+                            handleDeleteEvent(ev.id, ev.db_id, ev.volunteer_id)
+                            // Atualiza o popup removendo o evento deletado
+                            setDayPopupEvents((prev) => (prev ?? []).filter((e) => e.id !== ev.id))
+                          }}
+                          className="p-1.5 hover:bg-muted rounded-full transition-colors text-destructive"
+                          title="Deletar evento"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
                   ))
@@ -664,6 +697,27 @@ export default function EscalasPage() {
             )}
           </div>
 
+          {/* Dialog de Edição de Evento */}
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>EDITAR EVENTO</DialogTitle>
+              </DialogHeader>
+              {editingEvent && (
+                <EditEventForm
+                  type={editingEvent.type}
+                  event={editingEvent}
+                  registeredCats={registeredCats}
+                  onSave={handleUpdateEvent}
+                  onClose={() => {
+                    setIsEditDialogOpen(false)
+                    setEditingEvent(null)
+                  }}
+                />
+              )}
+            </DialogContent>
+          </Dialog>
+
           {/* Lista de Eventos */}
           <div className="space-y-3">
             {eventsToDisplay.length === 0 ? (
@@ -673,9 +727,11 @@ export default function EscalasPage() {
             ) : (
               eventsToDisplay.map((event) => {
                 const isSelected = selectedShifts.some((s) => s.id === event.id)
-                const displayVolunteer = isSelected ? "Isabella Ardo" : event.volunteer
+                const displayVolunteer = isSelected ? currentUser?.name : event.volunteer
                 // permissões/estado por evento
-                const canDelete = currentUser?.role === "LIDER"
+                const isEventOwner = event.volunteer_id === currentUser?.id
+                const isLeader = currentUser?.role === "LIDER"
+                const canDelete = isLeader || isEventOwner // TODO: Adicionar filtro para líderes removerem qualquer evento
                 const canComplete = Boolean(event.volunteer || isSelected)
                 const isCompleted = !!(event as any).completed
 
@@ -688,76 +744,65 @@ export default function EscalasPage() {
                             <Cat className="w-5 h-5 text-foreground" />
                           </div>
                           <div className="flex-1">
-                            {isAutomaticShifts ? (
-                              <p className="font-semibold text-sm text-foreground">
-                                {event.shift} -{" "}
-                                {displayVolunteer ? (
-                                  <Badge className="bg-primary text-white border-0">{displayVolunteer}</Badge>
-                                ) : (
-                                  <button
-                                    onClick={() => handleSelectVolunteer(event)}
-                                    className="text-foreground/60 font-medium hover:text-primary transition-colors"
-                                  >
-                                    Selecionar
-                                  </button>
+                            {(activeTab === "limpeza" || activeTab === "socializacao") ? (
+                              <>
+                                <p className="font-semibold text-sm text-foreground">
+                                  {event.time} - {event.shift} {event.cat && `- ${event.cat}`}
+                                </p>
+                                {event.cat && (
+                                  <p className="text-xs text-foreground/70 mt-1">Gato: {event.cat}</p>
                                 )}
-                              </p>
+                              </>
+                            ) : activeTab === "medicacao" ? (
+                              <>
+                                <p className="font-semibold text-sm text-foreground">
+                                  {event.time} - Medicação {event.cat}
+                                </p>
+                                <p className="text-xs text-foreground/70 mt-1">{event.medicine}</p>
+                              </>
                             ) : (
                               <>
-                                {activeTab === "medicacao" ? (
-                                  <>
-                                    <p className="font-semibold text-sm text-foreground">
-                                      {event.time} - Medicação {event.cat}
-                                    </p>
-                                    <p className="text-xs text-foreground/70 mt-1">{event.medicine}</p>
-                                  </>
-                                ) : (
-                                  <>
-                                    <p className="font-semibold text-sm text-foreground">
-                                      {event.time} - Consulta {event.cat}
-                                    </p>
-                                    <p className="text-xs text-foreground/70 mt-1">Vet. {event.vet}</p>
-                                    <p className="text-xs text-foreground/70">{event.clinic}</p>
-                                  </>
-                                )}
-                                <div className="mt-2">
-                                  {displayVolunteer ? (
-                                    <Badge className="bg-primary text-white border-0">{displayVolunteer}</Badge>
-                                  ) : (
-                                    <button
-                                      onClick={() => handleSelectVolunteer(event)}
-                                      className="text-foreground/60 text-sm font-medium hover:text-primary transition-colors"
-                                    >
-                                      Selecionar
-                                    </button>
-                                  )}
-                                </div>
+                                <p className="font-semibold text-sm text-foreground">
+                                  {event.time} - Consulta {event.cat}
+                                </p>
+                                <p className="text-xs text-foreground/70 mt-1">Vet. {event.vet}</p>
+                                <p className="text-xs text-foreground/70">{event.clinic}</p>
                               </>
                             )}
+                            <div className="mt-2">
+                              {displayVolunteer ? (
+                                <Badge className="bg-primary text-white border-0">{displayVolunteer}</Badge>
+                              ) : (
+                                <button
+                                  onClick={() => handleSelectVolunteer(event)}
+                                  className="text-foreground/60 text-sm font-medium hover:text-primary transition-colors"
+                                >
+                                  Selecionar
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              setEditingEvent(event)
+                              setIsEditDialogOpen(true)
+                            }}
+                            className="px-3 py-1.5 bg-secondary hover:bg-secondary/80 rounded-md transition-colors text-sm font-medium"
+                            title="Editar evento"
+                          >
+                            Editar
+                          </button>
                           {canDelete && (
                             <button
-                              onClick={() => handleDeleteEvent(event.id)}
+                              onClick={() => handleDeleteEvent(event.id, event.db_id, event.volunteer_id)}
                               className="p-2 hover:bg-muted rounded-full transition-colors text-destructive"
                               title="Deletar evento"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
                           )}
-                          <div className="ml-4">
-                            <input
-                              type="checkbox"
-                              checked={isCompleted}
-                              onChange={() => handleCompleteTask(event)}
-                              disabled={!canComplete}
-                              className={`w-5 h-5 rounded border-2 border-primary accent-primary ${
-                                canComplete ? "cursor-pointer" : "cursor-not-allowed opacity-50"
-                              }`}
-                              title={canComplete ? "Marcar como concluído" : "Selecione um voluntário primeiro"}
-                            />
-                          </div>
                         </div>
                       </div>
                     </CardContent>
@@ -777,13 +822,14 @@ export default function EscalasPage() {
 /**
  * Formulário de Criação de Eventos
  *
- * Usado para criar eventos de medicação e consultas veterinárias
+ * Usado para criar eventos de todos os tipos (limpeza, socialização, medicação e consultas)
  *
  * Campos do formulário:
+ * - Limpeza/Socialização: gato (opcional), data, hora, turno
  * - Medicação: gato, data, hora, medicamento
  * - Consulta: gato, data, hora, veterinário/clínica
  *
- * @param type - Tipo do evento (medicacao ou consultas)
+ * @param type - Tipo do evento (limpeza, socializacao, medicacao ou consultas)
  * @param selectedDate - Data pré-selecionada no calendário
  * @param onSave - Callback executado ao salvar
  * @param onClose - Callback para fechar o dialog
@@ -795,7 +841,7 @@ function CreateEventForm({
   onSave,
   onClose,
 }: {
-  type: "medicacao" | "consultas"
+  type: TabType
   selectedDate: Date | null
   registeredCats: { id: string; name: string }[]
   onSave: (data: any) => void
@@ -804,10 +850,11 @@ function CreateEventForm({
   const [selectedCat, setSelectedCat] = useState("")
   const [selectedClinic, setSelectedClinic] = useState("")
   const [medicine, setMedicine] = useState("")
+  const [shift, setShift] = useState("Manhã")
   const [date, setDate] = useState(selectedDate ? selectedDate.toISOString().split("T")[0] : "")
   const [time, setTime] = useState("")
 
-  const selectedClinicData = leaderVeterinarians.find((c) => c.id === selectedClinic)
+  const selectedClinicData = veterinaryClinics.find((c) => c.id === selectedClinic)
 
   /**
    * Processa o envio do formulário
@@ -820,14 +867,211 @@ function CreateEventForm({
     const dateStr = `${eventDate.getDate()}/${eventDate.getMonth() + 1}`
 
     const eventData: any = {
-      gato_id: Number(selectedCat), // envia o id do gato para o backend
+      gato_id: selectedCat ? Number(selectedCat) : null,
       date: dateStr,
       time,
     }
 
-    if (type === "medicacao") {
+    if (type === "limpeza" || type === "socializacao") {
+      eventData.shift = shift
+    } else if (type === "medicacao") {
       eventData.medicine = medicine
-    } else {
+    } else if (type === "consultas") {
+      eventData.vet = selectedClinicData?.vet
+      eventData.clinic = selectedClinicData?.name
+    }
+
+    onSave(eventData)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Campo Gato - obrigatório apenas para medicação e consultas */}
+      {(type === "medicacao" || type === "consultas") && (
+        <div>
+          <Label htmlFor="cat">Gato:</Label>
+          <Select value={selectedCat} onValueChange={setSelectedCat} required>
+            <SelectTrigger className="bg-secondary/50 border-border">
+              <SelectValue placeholder="Selecione o gato" />
+            </SelectTrigger>
+            <SelectContent>
+              {registeredCats.map((cat: { id: string; name: string }) => (
+                <SelectItem key={cat.id} value={cat.id}>
+                  {cat.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+      
+      {/* Campo Gato - opcional para limpeza e socialização */}
+      {(type === "limpeza" || type === "socializacao") && (
+        <div>
+          <Label htmlFor="cat">Gato (opcional):</Label>
+          <Select value={selectedCat} onValueChange={setSelectedCat}>
+            <SelectTrigger className="bg-secondary/50 border-border">
+              <SelectValue placeholder="Selecione o gato (opcional)" />
+            </SelectTrigger>
+            <SelectContent>
+              {registeredCats.map((cat: { id: string; name: string }) => (
+                <SelectItem key={cat.id} value={cat.id}>
+                  {cat.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      <div>
+        <Label htmlFor="date">Data:</Label>
+        <Input
+          id="date"
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          required
+          className="bg-secondary/50 border-border"
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="time">Horário:</Label>
+        <Input
+          id="time"
+          type="time"
+          value={time}
+          onChange={(e) => setTime(e.target.value)}
+          required
+          placeholder="--:--"
+          className="bg-secondary/50 border-border text-foreground placeholder:text-foreground/80 [&::-webkit-datetime-edit-text]:text-foreground/80 [&::-webkit-datetime-edit-hour-field]:text-foreground [&::-webkit-datetime-edit-minute-field]:text-foreground"
+        />
+      </div>
+
+      {/* Turno para limpeza e socialização */}
+      {(type === "limpeza" || type === "socializacao") && (
+        <div>
+          <Label htmlFor="shift">Turno:</Label>
+          <Select value={shift} onValueChange={setShift} required>
+            <SelectTrigger className="bg-secondary/50 border-border">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Manhã">Manhã</SelectItem>
+              <SelectItem value="Tarde">Tarde</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {type === "medicacao" ? (
+        <div>
+          <Label htmlFor="medicine">Medicamento:</Label>
+          <Input
+            id="medicine"
+            value={medicine}
+            onChange={(e) => setMedicine(e.target.value)}
+            placeholder="Digite o medicamento"
+            required
+            className="bg-secondary/50 border-border"
+          />
+        </div>
+      ) : type === "consultas" ? (
+        <>
+          <div>
+            <Label htmlFor="clinic">Veterinária:</Label>
+            <Select value={selectedClinic} onValueChange={setSelectedClinic} required>
+              <SelectTrigger className="bg-secondary/50 border-border">
+                <SelectValue placeholder="Selecione a veterinária" />
+              </SelectTrigger>
+              <SelectContent>
+                {veterinaryClinics.map((clinic: { id: string; name: string; vet: string }) => (
+                  <SelectItem key={clinic.id} value={clinic.id}>
+                    {clinic.name} - {clinic.vet}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {selectedClinicData && (
+            <div>
+              <Label>Local:</Label>
+              <div className="p-3 rounded-lg text-sm bg-secondary/50 text-foreground">{selectedClinicData.name}</div>
+            </div>
+          )}
+        </>
+      ) : null}
+
+      <div className="flex flex-col sm:flex-row gap-3 pt-4">
+        <Button type="button" variant="outline" className="flex-1 border-border bg-transparent" onClick={onClose}>
+          Cancelar
+        </Button>
+        <Button type="submit" className="flex-1 bg-primary hover:bg-accent text-white">
+          Salvar alterações
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+/**
+ * Formulário de Edição de Eventos
+ *
+ * Usado para editar eventos de medicação e consultas veterinárias
+ */
+function EditEventForm({
+  type,
+  event,
+  registeredCats,
+  onSave,
+  onClose,
+}: {
+  type: TabType
+  event: any
+  registeredCats: { id: string; name: string }[]
+  onSave: (data: any) => void
+  onClose: () => void
+}) {
+  const [selectedCat, setSelectedCat] = useState(String(event.gato_id || ""))
+  const [selectedClinic, setSelectedClinic] = useState("")
+  const [medicine, setMedicine] = useState(event.medicine || "")
+  const [shift, setShift] = useState(event.shift || "Manhã")
+  
+  // Converte a data do formato "D/M" para "YYYY-MM-DD"
+  const [dayStr, monthStr] = (event.date || "").split("/")
+  const currentYear = new Date().getFullYear()
+  const dateObj = new Date(currentYear, Number(monthStr) - 1, Number(dayStr))
+  const [date, setDate] = useState(dateObj.toISOString().split("T")[0])
+  const [time, setTime] = useState(event.time || "")
+
+  // Encontra a clínica pelo nome do veterinário
+  React.useEffect(() => {
+    if (type === "consultas" && event.vet) {
+      const clinic = leaderVeterinarians.find((c) => c.vet === event.vet)
+      if (clinic) setSelectedClinic(clinic.id)
+    }
+  }, [type, event.vet])
+
+  const selectedClinicData = leaderVeterinarians.find((c) => c.id === selectedClinic)
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+
+    const eventDate = new Date(date + "T00:00:00")
+    const dateStr = `${eventDate.getDate()}/${eventDate.getMonth() + 1}`
+
+    const eventData: any = {
+      gato_id: selectedCat ? Number(selectedCat) : null,
+      date: dateStr,
+      time,
+    }
+
+    if (type === "limpeza" || type === "socializacao") {
+      eventData.shift = shift
+    } else if (type === "medicacao") {
+      eventData.medicine = medicine
+    } else if (type === "consultas") {
       eventData.vet = selectedClinicData?.vet
       eventData.clinic = selectedClinicData?.name
     }
@@ -878,6 +1122,22 @@ function CreateEventForm({
         />
       </div>
 
+      {/* Turno para limpeza e socialização */}
+      {(type === "limpeza" || type === "socializacao") && (
+        <div>
+          <Label htmlFor="shift">Turno:</Label>
+          <Select value={shift} onValueChange={setShift} required>
+            <SelectTrigger className="bg-secondary/50 border-border">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Manhã">Manhã</SelectItem>
+              <SelectItem value="Tarde">Tarde</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       {type === "medicacao" ? (
         <div>
           <Label htmlFor="medicine">Medicamento:</Label>
@@ -890,7 +1150,7 @@ function CreateEventForm({
             className="bg-secondary/50 border-border"
           />
         </div>
-      ) : (
+      ) : type === "consultas" ? (
         <>
           <div>
             <Label htmlFor="clinic">Veterinária:</Label>
@@ -914,7 +1174,7 @@ function CreateEventForm({
             </div>
           )}
         </>
-      )}
+      ) : null}
 
       <div className="flex flex-col sm:flex-row gap-3 pt-4">
         <Button type="button" variant="outline" className="flex-1 border-border bg-transparent" onClick={onClose}>
@@ -926,28 +1186,4 @@ function CreateEventForm({
       </div>
     </form>
   )
-}
-
-const createMedicationEvent = async (payload: { gato_id: number; data_hora_prevista: string; medicamento: string }) => {
-  // 1) cria escala
-  const escala = {
-    usuario_id: null, // sem voluntário inicialmente
-    data_hora_inicio: payload.data_hora_prevista,
-    data_hora_fim: payload.data_hora_prevista, // ajustar se necessário
-    tipo: "Medicação",
-  }
-  const { data: newEscala } = await supabase.from("escalas").insert([escala]).select().single()
-
-  // 2) cria medicacao vinculada
-  if (newEscala) {
-    const med = {
-      escala_id: newEscala.id,
-      gato_id: payload.gato_id,
-      medicamento: payload.medicamento,
-      data_hora_prevista: payload.data_hora_prevista,
-    }
-    const { data: newMed } = await supabase.from("medicacao").insert([med]).select().single()
-    return { newEscala, newMed }
-  }
-  return null
 }
